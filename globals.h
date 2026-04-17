@@ -1,6 +1,7 @@
 #ifndef _GLOBALS_H_
 #define _GLOBALS_H_
 
+#include <cstdio>
 #include <string>
 
 /* 使用 firstChild/sibling 作为主结构；child[] 仅保留兼容旧代码 */
@@ -63,11 +64,16 @@ struct TreeNode {
             lastChild->sibling = c;
             lastChild = tail;
         }
+        bool inserted = false;
         for (int i = 0; i < MAXCHILDREN; i++) {
             if (child[i] == nullptr) {
                 child[i] = c;
+                inserted = true;
                 break;
             }
+        }
+        if (!inserted) {
+            fprintf(stderr, "Warning: child[] compatibility array full at line %d\n", lineno);
         }
     }
 };

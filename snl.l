@@ -82,7 +82,12 @@ newline     \n
 }
 
 {identifier} {
-    yylval.name = strdup(yytext);
+    char* dup = strdup(yytext);
+    if (dup == nullptr) {
+        fprintf(stderr, "Line %d: out of memory while reading identifier\n", lineno);
+        return ERROR;
+    }
+    yylval.name = dup;
     return ID;
 }
 
