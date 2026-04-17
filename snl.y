@@ -1,6 +1,7 @@
 %{
 #include "globals.h"
 #include <iostream>
+#include <cstdlib>
 #include <stdio.h>
 
 using namespace std;
@@ -90,6 +91,7 @@ programHead  : PROGRAM ID SEMI
                {
                    $$ = newNode(RoutineK);
                    $$->attr.name = $2;
+                   free($2);
                }
              ;
 
@@ -111,6 +113,7 @@ typeDec      : ID EQ typeSpec SEMI
                    $$ = newNode(DeclareK);
                    $$->kind.dec = TypeDecK;
                    $$->attr.name = $1;
+                   free($1);
                    $$->addChild($3);
                }
              ;
@@ -133,12 +136,14 @@ idList       : ID
                    $$ = newNode(ExpK);
                    $$->kind.exp = IdK;
                    $$->attr.name = $1;
+                   free($1);
                }
              | ID COMMA idList
                {
                    $$ = newNode(ExpK);
                    $$->kind.exp = IdK;
                    $$->attr.name = $1;
+                   free($1);
                    $$->sibling = $3;
                }
              ;
@@ -148,6 +153,7 @@ procDec      : PROCEDURE ID LPAREN paramList RPAREN SEMI declarePart programBody
                    $$ = newNode(DeclareK);
                    $$->kind.dec = ProcDecK;
                    $$->attr.name = $2;
+                   free($2);
                    $$->addChild($4);
                    $$->addChild($7);
                    $$->addChild($8);
@@ -157,6 +163,7 @@ procDec      : PROCEDURE ID LPAREN paramList RPAREN SEMI declarePart programBody
                    $$ = newNode(DeclareK);
                    $$->kind.dec = ProcDecK;
                    $$->attr.name = $2;
+                   free($2);
                    $$->addChild($4);
                    $$->addChild($5);
                }
@@ -184,6 +191,7 @@ typeSpec     : standardType              { $$ = $1; }
                    $$ = newNode(TypeK);
                    $$->kind.typekind = AliasTypeK;
                    $$->attr.name = $1;
+                   free($1);
                }
              ;
 
@@ -324,12 +332,14 @@ callStm      : CALL ID
                    $$ = newNode(StmtK);
                    $$->kind.stmt = CallK;
                    $$->attr.name = $2;
+                   free($2);
                }
              | CALL ID LPAREN actParamList RPAREN
                {
                    $$ = newNode(StmtK);
                    $$->kind.stmt = CallK;
                    $$->attr.name = $2;
+                   free($2);
                    $$->addChild($4);
                }
              ;
@@ -391,6 +401,7 @@ factor       : NUM
                    $$ = newNode(ExpK);
                    $$->kind.exp = ConstK;
                    $$->attr.name = $1;
+                   free($1);
                    $$->type = Char;
                }
              | variable
@@ -408,6 +419,7 @@ variable     : ID
                    $$ = newNode(ExpK);
                    $$->kind.exp = IdK;
                    $$->attr.name = $1;
+                   free($1);
                }
              | variable LMIDPAREN exp RMIDPAREN
                {
@@ -421,6 +433,7 @@ variable     : ID
                    $$ = newNode(ExpK);
                    $$->kind.exp = FieldMemberK;
                    $$->attr.name = $3;
+                   free($3);
                    $$->addChild($1);
                }
              ;

@@ -66,7 +66,7 @@ void printTree(TreeNode* t, int indent) {
                 cout << "[Op]: " << opToString(t->attr.op) << endl;
             }
             else if (t->kind.exp == ConstK) {
-                if (!t->attr.name.empty()) cout << "[Const]: " << t->attr.name << endl;
+                if (t->type == Char) cout << "[Const]: " << t->attr.name << endl;
                 else cout << "[Const]: " << t->attr.val << endl;
             }
             else if (t->kind.exp == IdK) cout << "[Id]: " << t->attr.name << endl;
@@ -75,13 +75,8 @@ void printTree(TreeNode* t, int indent) {
         }
 
         // 递归打印子节点（使用链表存储）
-        TreeNode* child = t->child;
-        while (child != nullptr) {
-            TreeNode* nextChild = child->sibling;
-            child->sibling = nullptr;
-            printTree(child, indent + 4);
-            child->sibling = nextChild;
-            child = nextChild;
+        if (t->child != nullptr) {
+            printTree(t->child, indent + 4);
         }
 
         // 顺着兄弟指针走（处理语句序列或变量列表）
