@@ -5,7 +5,7 @@
 #include <string>
 
 /* 使用 firstChild/sibling 作为主结构；child[] 仅保留兼容旧代码 */
-#define MAXCHILDREN 8
+#define MAXCHILDREN 32
 
 typedef enum { UnknownNodeK, ProgramK, RoutineK, DeclareK, TypeK, ParamK, StmtK, ExpK } NodeKind;
 typedef enum { VarDecK, TypeDecK, ProcDecK, FieldDecK } DecKind;
