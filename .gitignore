@@ -1,0 +1,6 @@
+lex.yy.c
+*.tab.c
+*.tab.h
+y.tab.c
+y.tab.h
+snl_compiler
