@@ -1,20 +1,26 @@
 %{
 #include "globals.h"
 #include "y.tab.h"
+
+#include <errno.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 int lineno = 1;
+static const long SNL_INT_MIN = -32768;
+static const long SNL_INT_MAX = 32767;
 %}
 
 %option noyywrap
+%x COMMENT
 
 digit       [0-9]
 number      {digit}+
 letter      [a-zA-Z]
 identifier  {letter}({letter}|{digit})*
 newline     \n
-whitespace  [ \t\r]+
-
 %%
 
 "PROGRAM"       { return PROGRAM; }
@@ -36,12 +42,20 @@ whitespace  [ \t\r]+
 "OF"            { return OF; }
 "RECORD"        { return RECORD; }
 "RETURN"        { return RETURN; }
+"CALL"          { return CALL; }
 "INTEGER"       { return INTEGER_T; }
 "CHAR"          { return CHAR_T; }
+"AND"           { return AND; }
+"OR"            { return OR; }
+"NOT"           { return NOT; }
 
 ":="            { return ASSIGN; }
+"<="            { return LE; }
+">="            { return GE; }
+"<>"            { return NE; }
 "="             { return EQ; }
 "<"             { return LT; }
+">"             { return GT; }
 "+"             { return PLUS; }
 "-"             { return MINUS; }
 "*"             { return TIMES; }
@@ -56,13 +70,62 @@ whitespace  [ \t\r]+
 ","             { return COMMA; }
 ".."            { return RANGE; }
 
-{number}        { yylval.val = atoi(yytext); return NUM; }
-{identifier}    { yylval.name = _strdup(yytext); return ID; }
-"'"."'"         { yylval.name = _strdup(yytext); return CHARC; }
+{number} {
+    errno = 0;
+    long v = strtol(yytext, NULL, 10);
+    if (errno == ERANGE || v < SNL_INT_MIN || v > SNL_INT_MAX) {
+        fprintf(stderr, "Line %d: integer out of range [%ld,%ld]: %s\n", lineno, SNL_INT_MIN, SNL_INT_MAX, yytext);
+        return ERROR;
+    }
+    yylval.val = (int)v;
+    return NUM;
+}
 
-"{"[^}]*"}"     { /* skip */ }
+{identifier} {
+    char* dup = strdup(yytext);
+    if (dup == NULL) {
+        fprintf(stderr, "Line %d: out of memory while reading identifier\n", lineno);
+        return ERROR;
+    }
+    yylval.name = dup;
+    return ID;
+}
+
+\'(\\n|\\t|\\\\|\\'|\\0|[^\\'\n])\' {
+    char c = 0;
+    if (yytext[1] == '\\') {
+        switch (yytext[2]) {
+            case 'n': c = '\n'; break;
+            case 't': c = '\t'; break;
+            case '\\': c = '\\'; break;
+            case '\'': c = '\''; break;
+            case '0': c = '\0'; break;
+            default:
+                fprintf(stderr, "Line %d: invalid escape sequence in char literal %s\n", lineno, yytext);
+                return ERROR;
+        }
+    } else {
+        c = yytext[1];
+    }
+    yylval.val = (unsigned char)c;
+    return CHARC;
+}
+
+"{"             { BEGIN(COMMENT); }
+<COMMENT>"}"     { BEGIN(INITIAL); }
+<COMMENT>{newline} { lineno++; }
+<COMMENT>.       { /* skip */ }
+<COMMENT><<EOF>> {
+    fprintf(stderr, "Line %d: unterminated comment\n", lineno);
+    return ERROR;
+}
+
 {newline}       { lineno++; }
-{whitespace}    { /* skip */ }
-.               { return ERROR; }
+[ \t\r]+       { /* skip */ }
+
+. {
+    fprintf(stderr, "Line %d: illegal character '%c'\n", lineno, yytext[0]);
+    return ERROR;
+}
 
 %%
