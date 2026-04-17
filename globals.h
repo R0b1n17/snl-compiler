@@ -3,7 +3,7 @@
 
 #include <string>
 
-/* 兼容旧结构，同时放宽固定 child 限制 */
+/* 使用 firstChild/sibling 作为主结构；child[] 仅保留兼容旧代码 */
 #define MAXCHILDREN 8
 
 typedef enum { ProgramK, RoutineK, DeclareK, TypeK, ParamK, StmtK, ExpK } NodeKind;

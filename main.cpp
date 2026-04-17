@@ -82,17 +82,7 @@ void printTree(TreeNode* t, int indent) {
                 break;
         }
 
-        TreeNode* c = t->firstChild;
-        if (c != nullptr) {
-            printTree(c, indent + 2);
-        } else {
-            for (int i = 0; i < MAXCHILDREN; i++) {
-                if (t->child[i] != nullptr) {
-                    printTree(t->child[i], indent + 2);
-                    break;
-                }
-            }
-        }
+        printTree(t->firstChild, indent + 2);
 
         t = t->sibling;
     }

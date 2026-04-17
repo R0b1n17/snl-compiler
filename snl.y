@@ -8,6 +8,8 @@ extern int lineno;
 void yyerror(const char *s);
 
 TreeNode* root = nullptr;
+static const char* TYPE_INTEGER_NAME = "INTEGER";
+static const char* TYPE_CHAR_NAME = "CHAR";
 
 static TreeNode* newNode(NodeKind kind) {
     TreeNode* t = new TreeNode();
@@ -189,13 +191,13 @@ typeSpec
       {
           $$ = newNode(TypeK);
           $$->kind.type = BaseTypeK;
-          $$->attr.name = "INTEGER";
+          $$->attr.name = TYPE_INTEGER_NAME;
       }
     | CHAR_T
       {
           $$ = newNode(TypeK);
           $$->kind.type = BaseTypeK;
-          $$->attr.name = "CHAR";
+          $$->attr.name = TYPE_CHAR_NAME;
       }
     | ID
       {

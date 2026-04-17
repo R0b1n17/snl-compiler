@@ -9,6 +9,8 @@
 #include <string.h>
 
 int lineno = 1;
+static const long SNL_INT_MIN = -32768;
+static const long SNL_INT_MAX = 32767;
 %}
 
 %option noyywrap
@@ -71,8 +73,8 @@ newline     \n
 {number} {
     errno = 0;
     long v = strtol(yytext, nullptr, 10);
-    if (errno == ERANGE || v < -32768 || v > 32767) {
-        fprintf(stderr, "Line %d: integer out of range [-32768,32767]: %s\n", lineno, yytext);
+    if (errno == ERANGE || v < SNL_INT_MIN || v > SNL_INT_MAX) {
+        fprintf(stderr, "Line %d: integer out of range [%ld,%ld]: %s\n", lineno, SNL_INT_MIN, SNL_INT_MAX, yytext);
         return ERROR;
     }
     yylval.val = (int)v;
@@ -84,7 +86,7 @@ newline     \n
     return ID;
 }
 
-\'(\\[nt\\'0\\]|[^\\'\n])\' {
+\'(\\n|\\t|\\\\|\\'|\\0|[^\\'\n])\' {
     char c = 0;
     if (yytext[1] == '\\') {
         switch (yytext[2]) {
