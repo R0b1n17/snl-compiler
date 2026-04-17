@@ -64,15 +64,15 @@ struct TreeNode {
             lastChild->sibling = c;
             lastChild = tail;
         }
-        bool inserted = false;
-        for (int i = 0; i < MAXCHILDREN; i++) {
-            if (child[i] == nullptr) {
-                child[i] = c;
-                inserted = true;
-                break;
-            }
+        int idx = 0;
+        while (idx < MAXCHILDREN && child[idx] != nullptr) idx++;
+
+        TreeNode* q = c;
+        while (q != nullptr && idx < MAXCHILDREN) {
+            child[idx++] = q;
+            q = q->sibling;
         }
-        if (!inserted) {
+        if (q != nullptr) {
             fprintf(stderr, "Warning: child[] compatibility array full at line %d\n", lineno);
         }
     }

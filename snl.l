@@ -72,7 +72,7 @@ newline     \n
 
 {number} {
     errno = 0;
-    long v = strtol(yytext, nullptr, 10);
+    long v = strtol(yytext, NULL, 10);
     if (errno == ERANGE || v < SNL_INT_MIN || v > SNL_INT_MAX) {
         fprintf(stderr, "Line %d: integer out of range [%ld,%ld]: %s\n", lineno, SNL_INT_MIN, SNL_INT_MAX, yytext);
         return ERROR;
@@ -83,7 +83,7 @@ newline     \n
 
 {identifier} {
     char* dup = strdup(yytext);
-    if (dup == nullptr) {
+    if (dup == NULL) {
         fprintf(stderr, "Line %d: out of memory while reading identifier\n", lineno);
         return ERROR;
     }

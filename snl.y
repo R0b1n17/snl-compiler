@@ -8,8 +8,8 @@ extern int lineno;
 void yyerror(const char *s);
 
 TreeNode* root = nullptr;
-static const char* TYPE_INTEGER_NAME = "INTEGER";
-static const char* TYPE_CHAR_NAME = "CHAR";
+static constexpr const char* TYPE_INTEGER_NAME = "INTEGER";
+static constexpr const char* TYPE_CHAR_NAME = "CHAR";
 
 static TreeNode* newNode(NodeKind kind) {
     TreeNode* t = new TreeNode();
