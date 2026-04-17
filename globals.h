@@ -7,7 +7,7 @@
 /* 使用 firstChild/sibling 作为主结构；child[] 仅保留兼容旧代码 */
 #define MAXCHILDREN 8
 
-typedef enum { ProgramK, RoutineK, DeclareK, TypeK, ParamK, StmtK, ExpK } NodeKind;
+typedef enum { UnknownNodeK, ProgramK, RoutineK, DeclareK, TypeK, ParamK, StmtK, ExpK } NodeKind;
 typedef enum { VarDecK, TypeDecK, ProcDecK, FieldDecK } DecKind;
 typedef enum { RoutineHeadK, RoutineBodyK } RoutineKind;
 typedef enum { ValueParamK, VarParamK } ParamKind;
@@ -44,7 +44,7 @@ struct TreeNode {
     ExpType type;
 
     TreeNode()
-        : firstChild(nullptr), lastChild(nullptr), sibling(nullptr), lineno(0), nodekind(ProgramK), type(Void) {
+        : firstChild(nullptr), lastChild(nullptr), sibling(nullptr), lineno(0), nodekind(UnknownNodeK), type(Void) {
         for (int i = 0; i < MAXCHILDREN; i++) child[i] = nullptr;
         attr.op = 0;
         attr.val = 0;
