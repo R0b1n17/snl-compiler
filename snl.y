@@ -1,7 +1,6 @@
 %{
 #include "globals.h"
 #include <iostream>
-#include <string>
 #include <stdio.h>
 
 using namespace std;
@@ -11,6 +10,38 @@ extern int lineno;
 void yyerror(const char *s);
 
 TreeNode * root = nullptr;
+
+static TreeNode* newNode(NodeKind kind) {
+    TreeNode* t = new TreeNode();
+    t->nodekind = kind;
+    t->lineno = lineno;
+    return t;
+}
+
+static TreeNode* appendSibling(TreeNode* head, TreeNode* tail) {
+    if (head == nullptr) return tail;
+    TreeNode* p = head;
+    while (p->sibling != nullptr) p = p->sibling;
+    p->sibling = tail;
+    return head;
+}
+
+static TreeNode* makeOpNode(int op, TreeNode* left, TreeNode* right) {
+    TreeNode* t = newNode(ExpK);
+    t->kind.exp = OpK;
+    t->attr.op = op;
+    t->addChild(left);
+    t->addChild(right);
+    return t;
+}
+
+static TreeNode* makeUnaryNode(int op, TreeNode* operand) {
+    TreeNode* t = newNode(ExpK);
+    t->kind.exp = OpK;
+    t->attr.op = op;
+    t->addChild(operand);
+    return t;
+}
 %}
 
 %union {
@@ -19,211 +50,380 @@ TreeNode * root = nullptr;
     TreeNode * node;
 }
 
-/* --- Token 声明 --- */
-%token PROGRAM PROCEDURE TYPE VAR IF THEN ELSE FI WHILE DO ENDWH 
-%token BEGIN_SYM END READ WRITE ARRAY OF RECORD RETURN 
+%token PROGRAM PROCEDURE TYPE VAR IF THEN ELSE FI WHILE DO ENDWH
+%token BEGIN_SYM END READ WRITE CALL ARRAY OF RECORD RETURN
 %token INTEGER_T CHAR_T
-%token ASSIGN EQ LT PLUS MINUS TIMES OVER 
-%token LPAREN RPAREN LMIDPAREN RMIDPAREN 
+%token ASSIGN EQ LT LE GT GE NEQ PLUS MINUS TIMES OVER
+%token AND OR NOT
+%token LPAREN RPAREN LMIDPAREN RMIDPAREN
 %token DOT COLON SEMI COMMA RANGE ERROR
 %token <name> ID CHARC
 %token <val> NUM
 
-/* --- 非终结符类型声明 --- */
-%type <node> program programHead declarePart varDecList varIdList 
-%type <node> programBody stmList stm assignStm ifStm whileStm readStm writeStm returnStm 
-%type <node> exp simple_exp term factor
+%type <node> program programHead declarePart declareItem typeDecList typeDec
+%type <node> varDecList varDec idList procDec paramList paramDec
+%type <node> typeSpec standardType arrayType recordType fieldDecList fieldDec
+%type <node> programBody stmList stm assignStm ifStm whileStm readStm writeStm callStm returnStm
+%type <node> actParamList variable exp andExp relExp simpleExp term unaryExp factor
 
 %%
 
-/* 1. 程序结构 */
-program     : programHead declarePart programBody DOT
-              {
-                  $$ = new TreeNode();
-                  $$->nodekind = ProgramK;
-                  $$->child[0] = $1; 
-                  $$->child[1] = $2; 
-                  $$->child[2] = $3; 
-                  root = $$;
-              }
-            ;
+program      : programHead declarePart programBody DOT
+               {
+                   $$ = newNode(ProgramK);
+                   $$->addChild($1);
+                   $$->addChild($2);
+                   $$->addChild($3);
+                   root = $$;
+               }
+             | programHead error DOT
+               {
+                   yyerror("syntax error in program");
+                   $$ = newNode(ProgramK);
+                   $$->addChild($1);
+                   root = $$;
+                   yyerrok;
+               }
+             ;
 
-programHead : PROGRAM ID SEMI
-              {
-                  $$ = new TreeNode();
-                  $$->nodekind = RoutineK;
-                  $$->attr.name = $2;
-              }
-            ;
+programHead  : PROGRAM ID SEMI
+               {
+                   $$ = newNode(RoutineK);
+                   $$->attr.name = $2;
+               }
+             ;
 
-declarePart : VAR varDecList { $$ = $2; }
-            | /* empty */ { $$ = nullptr; }
-            ;
+declarePart  : declareItem declarePart     { $$ = appendSibling($1, $2); }
+             | /* empty */                 { $$ = nullptr; }
+             ;
 
-varDecList  : INTEGER_T varIdList SEMI
-              {
-                  $$ = new TreeNode();
-                  $$->nodekind = DeclareK;
-                  $$->kind.dec = IntegerK;
-                  $$->child[0] = $2; // 这里挂载的是变量链表的头
-              }
-            ;
+declareItem  : TYPE typeDecList            { $$ = $2; }
+             | VAR varDecList              { $$ = $2; }
+             | procDec                     { $$ = $1; }
+             ;
 
-/* --- 重点修改：支持 x, y, z 这种多变量形式 --- */
-varIdList   : ID
-              {
-                  $$ = new TreeNode();
-                  $$->attr.name = $1;
-                  /* 只有一个变量，没有兄弟节点 */
-              }
-            | ID COMMA varIdList
-              {
-                  $$ = new TreeNode();
-                  $$->attr.name = $1;
-                  $$->sibling = $3; // 通过 sibling 把后面的变量链表接上来
-              }
-            ;
+typeDecList  : typeDec                 { $$ = $1; }
+             | typeDec typeDecList      { $1->sibling = $2; $$ = $1; }
+             ;
 
-programBody : BEGIN_SYM stmList END { $$ = $2; }
-            ;
+typeDec      : ID EQ typeSpec SEMI
+               {
+                   $$ = newNode(DeclareK);
+                   $$->kind.dec = TypeDecK;
+                   $$->attr.name = $1;
+                   $$->addChild($3);
+               }
+             ;
 
-/* 2. 语句部分 */
-stmList     : stm { $$ = $1; }
-            | stm SEMI stmList { $1->sibling = $3; $$ = $1; }
-            | stm SEMI { $$ = $1; } 
-            ;
+varDecList   : varDec                 { $$ = $1; }
+             | varDec varDecList      { $1->sibling = $2; $$ = $1; }
+             ;
 
-stm         : assignStm { $$ = $1; }
-            | ifStm     { $$ = $1; }
-            | whileStm  { $$ = $1; }
-            | readStm   { $$ = $1; }
-            | writeStm  { $$ = $1; }
-            | returnStm { $$ = $1; }
-            ;
+varDec       : idList COLON typeSpec SEMI
+               {
+                   $$ = newNode(DeclareK);
+                   $$->kind.dec = VarDecK;
+                   $$->addChild($1);
+                   $$->addChild($3);
+               }
+             ;
 
-assignStm   : ID ASSIGN exp
-              {
-                  $$ = new TreeNode();
-                  $$->nodekind = StmtK; $$->kind.stmt = AssignK;
-                  $$->attr.name = $1; $$->child[0] = $3;
-                  $$->lineno = lineno;
-              }
-            ;
-        
-ifStm       : IF exp THEN stmList ELSE stmList FI
-              {
-                  $$ = new TreeNode();
-                  $$->nodekind = StmtK; $$->kind.stmt = IfK;
-                  $$->child[0] = $2; 
-                  $$->child[1] = $4; 
-                  $$->child[2] = $6; 
-                  $$->lineno = lineno;
-              }
-            | IF exp THEN stmList FI
-              {
-                  $$ = new TreeNode();
-                  $$->nodekind = StmtK; $$->kind.stmt = IfK;
-                  $$->child[0] = $2;
-                  $$->child[1] = $4;
-                  $$->lineno = lineno;
-              }
-            ;
+idList       : ID
+               {
+                   $$ = newNode(ExpK);
+                   $$->kind.exp = IdK;
+                   $$->attr.name = $1;
+               }
+             | ID COMMA idList
+               {
+                   $$ = newNode(ExpK);
+                   $$->kind.exp = IdK;
+                   $$->attr.name = $1;
+                   $$->sibling = $3;
+               }
+             ;
 
-whileStm    : WHILE exp DO stmList ENDWH
-              {
-                  $$ = new TreeNode();
-                  $$->nodekind = StmtK; $$->kind.stmt = WhileK;
-                  $$->child[0] = $2; 
-                  $$->child[1] = $4; 
-                  $$->lineno = lineno;
-              }
-            ;
+procDec      : PROCEDURE ID LPAREN paramList RPAREN SEMI declarePart programBody SEMI
+               {
+                   $$ = newNode(DeclareK);
+                   $$->kind.dec = ProcDecK;
+                   $$->attr.name = $2;
+                   $$->addChild($4);
+                   $$->addChild($7);
+                   $$->addChild($8);
+               }
+             | PROCEDURE ID SEMI declarePart programBody SEMI
+               {
+                   $$ = newNode(DeclareK);
+                   $$->kind.dec = ProcDecK;
+                   $$->attr.name = $2;
+                   $$->addChild($4);
+                   $$->addChild($5);
+               }
+             ;
 
-readStm     : READ LPAREN ID RPAREN
-              {
-                  $$ = new TreeNode();
-                  $$->nodekind = StmtK; $$->kind.stmt = ReadK;
-                  $$->attr.name = $3;
-                  $$->lineno = lineno;
-              }
-            ;
+paramList    : paramDec                  { $$ = $1; }
+             | paramDec SEMI paramList   { $1->sibling = $3; $$ = $1; }
+             | /* empty */               { $$ = nullptr; }
+             ;
 
-writeStm    : WRITE LPAREN exp RPAREN
-              {
-                  $$ = new TreeNode();
-                  $$->nodekind = StmtK; $$->kind.stmt = WriteK;
-                  $$->child[0] = $3;
-                  $$->lineno = lineno;
-              }
-            ;
+paramDec     : idList COLON typeSpec
+               {
+                   $$ = newNode(DeclareK);
+                   $$->kind.dec = ParamDecK;
+                   $$->addChild($1);
+                   $$->addChild($3);
+               }
+             ;
 
-returnStm   : RETURN
-              {
-                  $$ = new TreeNode();
-                  $$->nodekind = StmtK; $$->kind.stmt = ReturnK;
-                  $$->lineno = lineno;
-              }
-            ;
-        
-/* 3. 表达式层级 */
-exp         : simple_exp { $$ = $1; }
-            | simple_exp LT simple_exp 
-              { 
-                  $$ = new TreeNode(); $$->nodekind = ExpK; $$->kind.exp = OpK;
-                  $$->attr.op = LT; $$->child[0] = $1; $$->child[1] = $3;
-                  $$->lineno = lineno;
-              }
-            | simple_exp EQ simple_exp 
-              { 
-                  $$ = new TreeNode(); $$->nodekind = ExpK; $$->kind.exp = OpK;
-                  $$->attr.op = EQ; $$->child[0] = $1; $$->child[1] = $3;
-                  $$->lineno = lineno;
-              }
-            ;
+typeSpec     : standardType              { $$ = $1; }
+             | arrayType                 { $$ = $1; }
+             | recordType                { $$ = $1; }
+             | ID
+               {
+                   $$ = newNode(TypeK);
+                   $$->kind.typekind = AliasTypeK;
+                   $$->attr.name = $1;
+               }
+             ;
 
-simple_exp  : term { $$ = $1; }
-            | simple_exp PLUS term 
-              { 
-                  $$ = new TreeNode(); $$->nodekind = ExpK; $$->kind.exp = OpK;
-                  $$->attr.op = PLUS; $$->child[0] = $1; $$->child[1] = $3;
-                  $$->lineno = lineno;
-              }
-            | simple_exp MINUS term 
-              { 
-                  $$ = new TreeNode(); $$->nodekind = ExpK; $$->kind.exp = OpK;
-                  $$->attr.op = MINUS; $$->child[0] = $1; $$->child[1] = $3;
-                  $$->lineno = lineno;
-              }
-            ;
+standardType : INTEGER_T
+               {
+                   $$ = newNode(TypeK);
+                   $$->kind.typekind = BaseTypeK;
+                   $$->attr.name = "INTEGER";
+                   $$->type = Integer;
+               }
+             | CHAR_T
+               {
+                   $$ = newNode(TypeK);
+                   $$->kind.typekind = BaseTypeK;
+                   $$->attr.name = "CHAR";
+                   $$->type = Char;
+               }
+             ;
 
-term        : factor { $$ = $1; }
-            | term TIMES factor 
-              { 
-                  $$ = new TreeNode(); $$->nodekind = ExpK; $$->kind.exp = OpK;
-                  $$->attr.op = TIMES; $$->child[0] = $1; $$->child[1] = $3;
-                  $$->lineno = lineno;
-              }
-            | term OVER factor 
-              { 
-                  $$ = new TreeNode(); $$->nodekind = ExpK; $$->kind.exp = OpK;
-                  $$->attr.op = OVER; $$->child[0] = $1; $$->child[1] = $3;
-                  $$->lineno = lineno;
-              }
-            ;
+arrayType    : ARRAY LMIDPAREN NUM RANGE NUM RMIDPAREN OF typeSpec
+               {
+                   $$ = newNode(TypeK);
+                   $$->kind.typekind = ArrayTypeK;
+                   $$->attr.arrayLow = $3;
+                   $$->attr.arrayHigh = $5;
+                   $$->addChild($8);
+               }
+             ;
 
-factor      : NUM 
-              { 
-                  $$ = new TreeNode(); $$->nodekind = ExpK; $$->kind.exp = ConstK;
-                  $$->attr.val = $1; $$->lineno = lineno;
-              }
-            | ID 
-              { 
-                  $$ = new TreeNode(); $$->nodekind = ExpK; $$->kind.exp = IdK;
-                  $$->attr.name = $1; $$->lineno = lineno;
-              }
-            | LPAREN exp RPAREN 
-              { $$ = $2; }
-            ;
+recordType   : RECORD fieldDecList END
+               {
+                   $$ = newNode(TypeK);
+                   $$->kind.typekind = RecordTypeK;
+                   $$->addChild($2);
+               }
+             ;
+
+fieldDecList : fieldDec                 { $$ = $1; }
+             | fieldDec SEMI fieldDecList { $1->sibling = $3; $$ = $1; }
+             | fieldDec SEMI            { $$ = $1; }
+             ;
+
+fieldDec     : idList COLON typeSpec
+               {
+                   $$ = newNode(DeclareK);
+                   $$->kind.dec = VarDecK;
+                   $$->addChild($1);
+                   $$->addChild($3);
+               }
+             ;
+
+programBody  : BEGIN_SYM stmList END    { $$ = $2; }
+             ;
+
+stmList      : stm                      { $$ = $1; }
+             | stm SEMI stmList
+               {
+                   if ($1 == nullptr) $$ = $3;
+                   else { $1->sibling = $3; $$ = $1; }
+               }
+             | stm SEMI                 { $$ = $1; }
+             | error SEMI stmList
+               {
+                   yyerror("invalid statement, skipping to ';'");
+                   yyerrok;
+                   $$ = $3;
+               }
+             | error SEMI
+               {
+                   yyerror("invalid statement, skipping to ';'");
+                   yyerrok;
+                   $$ = nullptr;
+               }
+             ;
+
+stm          : assignStm                { $$ = $1; }
+             | ifStm                    { $$ = $1; }
+             | whileStm                 { $$ = $1; }
+             | readStm                  { $$ = $1; }
+             | writeStm                 { $$ = $1; }
+             | callStm                  { $$ = $1; }
+             | returnStm                { $$ = $1; }
+             ;
+
+assignStm    : variable ASSIGN exp
+               {
+                   $$ = newNode(StmtK);
+                   $$->kind.stmt = AssignK;
+                   $$->addChild($1);
+                   $$->addChild($3);
+               }
+             ;
+
+ifStm        : IF exp THEN stmList ELSE stmList FI
+               {
+                   $$ = newNode(StmtK);
+                   $$->kind.stmt = IfK;
+                   $$->addChild($2);
+                   $$->addChild($4);
+                   $$->addChild($6);
+               }
+             | IF exp THEN stmList FI
+               {
+                   $$ = newNode(StmtK);
+                   $$->kind.stmt = IfK;
+                   $$->addChild($2);
+                   $$->addChild($4);
+               }
+             ;
+
+whileStm     : WHILE exp DO stmList ENDWH
+               {
+                   $$ = newNode(StmtK);
+                   $$->kind.stmt = WhileK;
+                   $$->addChild($2);
+                   $$->addChild($4);
+               }
+             ;
+
+readStm      : READ LPAREN variable RPAREN
+               {
+                   $$ = newNode(StmtK);
+                   $$->kind.stmt = ReadK;
+                   $$->addChild($3);
+               }
+             ;
+
+writeStm     : WRITE LPAREN exp RPAREN
+               {
+                   $$ = newNode(StmtK);
+                   $$->kind.stmt = WriteK;
+                   $$->addChild($3);
+               }
+             ;
+
+callStm      : CALL ID
+               {
+                   $$ = newNode(StmtK);
+                   $$->kind.stmt = CallK;
+                   $$->attr.name = $2;
+               }
+             | CALL ID LPAREN actParamList RPAREN
+               {
+                   $$ = newNode(StmtK);
+                   $$->kind.stmt = CallK;
+                   $$->attr.name = $2;
+                   $$->addChild($4);
+               }
+             ;
+
+actParamList : exp                       { $$ = $1; }
+             | exp COMMA actParamList    { $1->sibling = $3; $$ = $1; }
+             | /* empty */               { $$ = nullptr; }
+             ;
+
+returnStm    : RETURN
+               {
+                   $$ = newNode(StmtK);
+                   $$->kind.stmt = ReturnK;
+               }
+             ;
+
+exp          : exp OR andExp             { $$ = makeOpNode(OR, $1, $3); }
+             | andExp                    { $$ = $1; }
+             ;
+
+andExp       : andExp AND relExp         { $$ = makeOpNode(AND, $1, $3); }
+             | relExp                    { $$ = $1; }
+             ;
+
+relExp       : simpleExp                 { $$ = $1; }
+             | simpleExp LT simpleExp    { $$ = makeOpNode(LT, $1, $3); }
+             | simpleExp LE simpleExp    { $$ = makeOpNode(LE, $1, $3); }
+             | simpleExp GT simpleExp    { $$ = makeOpNode(GT, $1, $3); }
+             | simpleExp GE simpleExp    { $$ = makeOpNode(GE, $1, $3); }
+             | simpleExp EQ simpleExp    { $$ = makeOpNode(EQ, $1, $3); }
+             | simpleExp NEQ simpleExp   { $$ = makeOpNode(NEQ, $1, $3); }
+             ;
+
+simpleExp    : simpleExp PLUS term       { $$ = makeOpNode(PLUS, $1, $3); }
+             | simpleExp MINUS term      { $$ = makeOpNode(MINUS, $1, $3); }
+             | term                      { $$ = $1; }
+             ;
+
+term         : term TIMES unaryExp       { $$ = makeOpNode(TIMES, $1, $3); }
+             | term OVER unaryExp        { $$ = makeOpNode(OVER, $1, $3); }
+             | unaryExp                  { $$ = $1; }
+             ;
+
+unaryExp     : MINUS unaryExp            { $$ = makeUnaryNode(MINUS, $2); }
+             | PLUS unaryExp             { $$ = makeUnaryNode(PLUS, $2); }
+             | NOT unaryExp              { $$ = makeUnaryNode(NOT, $2); }
+             | factor                    { $$ = $1; }
+             ;
+
+factor       : NUM
+               {
+                   $$ = newNode(ExpK);
+                   $$->kind.exp = ConstK;
+                   $$->attr.val = $1;
+                   $$->type = Integer;
+               }
+             | CHARC
+               {
+                   $$ = newNode(ExpK);
+                   $$->kind.exp = ConstK;
+                   $$->attr.name = $1;
+                   $$->type = Char;
+               }
+             | variable
+               {
+                   $$ = $1;
+               }
+             | LPAREN exp RPAREN
+               {
+                   $$ = $2;
+               }
+             ;
+
+variable     : ID
+               {
+                   $$ = newNode(ExpK);
+                   $$->kind.exp = IdK;
+                   $$->attr.name = $1;
+               }
+             | variable LMIDPAREN exp RMIDPAREN
+               {
+                   $$ = newNode(ExpK);
+                   $$->kind.exp = ArrayMemberK;
+                   $$->addChild($1);
+                   $$->addChild($3);
+               }
+             | variable DOT ID
+               {
+                   $$ = newNode(ExpK);
+                   $$->kind.exp = FieldMemberK;
+                   $$->attr.name = $3;
+                   $$->addChild($1);
+               }
+             ;
 
 %%
 
