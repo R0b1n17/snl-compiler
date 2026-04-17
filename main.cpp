@@ -1,54 +1,99 @@
 #include <iostream>
 #include <stdio.h>
+#include <string>
+
 #include "globals.h"
 #include "y.tab.h"
 
 extern int yyparse();
 extern FILE* yyin;
-extern TreeNode* root; // 确保这里是 extern
+extern TreeNode* root;
 
 using namespace std;
 
-void printTree(TreeNode* t, int indent) {
-    if (t == nullptr) return; // 递归出口
+static string opToString(int op) {
+    switch (op) {
+        case PLUS: return "+";
+        case MINUS: return "-";
+        case TIMES: return "*";
+        case OVER: return "/";
+        case LT: return "<";
+        case LE: return "<=";
+        case GT: return ">";
+        case GE: return ">=";
+        case EQ: return "=";
+        case NE: return "<>";
+        case AND: return "AND";
+        case OR: return "OR";
+        case NOT: return "NOT";
+        case DOT: return ".";
+        case LMIDPAREN: return "[]";
+        default: return "?";
+    }
+}
 
+void printTree(TreeNode* t, int indent) {
     while (t != nullptr) {
         for (int i = 0; i < indent; i++) cout << "  ";
 
-        // --- 完善打印逻辑 ---
-        if (t->nodekind == ProgramK) cout << "[Program Root]" << endl;
-        else if (t->nodekind == RoutineK) cout << "[Routine Head]: " << t->attr.name << endl;
-        else if (t->nodekind == DeclareK) cout << "[Declaration Part]" << endl;
-        else if (t->nodekind == StmtK) {
-            if (t->kind.stmt == AssignK) cout << "[Stmt]: Assign to " << t->attr.name << endl;
-            else if (t->kind.stmt == IfK) cout << "[Stmt]: IF" << endl;
-            else if (t->kind.stmt == WhileK) cout << "[Stmt]: WHILE" << endl;
-            else if (t->kind.stmt == WriteK) cout << "[Stmt]: WRITE" << endl;
-            else if (t->kind.stmt == ReadK) cout << "[Stmt]: READ " << t->attr.name << endl;
-        }
-        else if (t->nodekind == ExpK) {
-            if (t->kind.exp == OpK) {
-                string op;
-                switch(t->attr.op) {
-                    case PLUS: op = "+"; break; case MINUS: op = "-"; break;
-                    case TIMES: op = "*"; break; case OVER: op = "/"; break;
-                    case LT: op = "<"; break; case EQ: op = "="; break;
-                    default: op = "?";
+        switch (t->nodekind) {
+            case ProgramK:
+                cout << "[Program]" << endl;
+                break;
+            case RoutineK:
+                if (t->kind.routine == RoutineHeadK) {
+                    cout << "[RoutineHead] " << t->attr.name << endl;
+                } else {
+                    cout << "[RoutineBody]" << endl;
                 }
-                cout << "[Op]: " << op << endl;
-            }
-            else if (t->kind.exp == ConstK) cout << "[Const]: " << t->attr.val << endl;
-            else if (t->kind.exp == IdK) cout << "[Id]: " << t->attr.name << endl;
+                break;
+            case DeclareK:
+                if (t->kind.dec == VarDecK) cout << "[VarDecl]" << endl;
+                else if (t->kind.dec == TypeDecK) cout << "[TypeDecl] " << t->attr.name << endl;
+                else if (t->kind.dec == ProcDecK) cout << "[ProcDecl] " << t->attr.name << endl;
+                else if (t->kind.dec == FieldDecK) cout << "[FieldDecl]" << endl;
+                break;
+            case TypeK:
+                if (t->kind.type == BaseTypeK) cout << "[Type] " << t->attr.name << endl;
+                else if (t->kind.type == AliasTypeK) cout << "[TypeAlias] " << t->attr.name << endl;
+                else if (t->kind.type == ArrayTypeK) cout << "[ArrayType] [" << t->attr.low << ".." << t->attr.high << "]" << endl;
+                else if (t->kind.type == RecordTypeK) cout << "[RecordType]" << endl;
+                break;
+            case ParamK:
+                cout << "[Param] " << (t->kind.param == VarParamK ? "VAR" : "VALUE") << endl;
+                break;
+            case StmtK:
+                if (t->kind.stmt == AssignK) cout << "[Stmt] Assign" << endl;
+                else if (t->kind.stmt == IfK) cout << "[Stmt] IF" << endl;
+                else if (t->kind.stmt == WhileK) cout << "[Stmt] WHILE" << endl;
+                else if (t->kind.stmt == ReadK) cout << "[Stmt] READ" << endl;
+                else if (t->kind.stmt == WriteK) cout << "[Stmt] WRITE" << endl;
+                else if (t->kind.stmt == CallK) cout << "[Stmt] CALL " << t->attr.name << endl;
+                else if (t->kind.stmt == ReturnK) cout << "[Stmt] RETURN" << endl;
+                break;
+            case ExpK:
+                if (t->kind.exp == OpK) cout << "[Op] " << opToString(t->attr.op) << endl;
+                else if (t->kind.exp == UnaryOpK) cout << "[Unary] " << opToString(t->attr.op) << endl;
+                else if (t->kind.exp == ConstK) cout << "[Const] " << t->attr.val << endl;
+                else if (t->kind.exp == IdK) cout << "[Id] " << t->attr.name << endl;
+                break;
+            default:
+                cout << "[Unknown]" << endl;
+                break;
         }
 
-        // 递归打印子节点（SNL 语法树最多有 3 个孩子）
-        for (int i = 0; i < 3; i++) {
-            if (t->child[i] != nullptr) {
-                printTree(t->child[i], indent + 4);
+        TreeNode* c = t->firstChild;
+        if (c != nullptr) {
+            printTree(c, indent + 2);
+        } else {
+            for (int i = 0; i < MAXCHILDREN; i++) {
+                if (t->child[i] != nullptr) {
+                    printTree(t->child[i], indent + 2);
+                    break;
+                }
             }
         }
 
-        // 顺着兄弟指针走（处理语句序列或变量列表）
         t = t->sibling;
     }
 }
@@ -56,13 +101,16 @@ void printTree(TreeNode* t, int indent) {
 int main(int argc, char* argv[]) {
     if (argc > 1) {
         yyin = fopen(argv[1], "r");
-        if (!yyin) { cout << "File not found!" << endl; return 1; }
+        if (!yyin) {
+            cout << "File not found!" << endl;
+            return 1;
+        }
     }
 
     if (yyparse() == 0) {
         cout << "--- Parse Success! ---" << endl;
         if (root == nullptr) {
-            cout << "Warning: Root is NULL. Did you assign 'root = $$' in snl.y?" << endl;
+            cout << "Warning: Root is NULL." << endl;
         } else {
             cout << "--- AST Structure ---" << endl;
             printTree(root, 0);
@@ -70,5 +118,6 @@ int main(int argc, char* argv[]) {
     } else {
         cout << "--- Parse Failed ---" << endl;
     }
+
     return 0;
 }
