@@ -1,0 +1,6 @@
+PROGRAM scaffold;
+VAR
+    INTEGER x;
+BEGIN
+    x := 100;
+END.

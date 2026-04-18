@@ -1,0 +1,32 @@
+PROGRAM complexTest;
+TYPE
+    MyArray = ARRAY [1..10] OF INTEGER;
+VAR
+    arr: MyArray;
+    i, temp: INTEGER;
+
+PROCEDURE swap(VAR a, b: INTEGER);
+    VAR t: INTEGER;
+    BEGIN
+        t := a;
+        a := b;
+        b := t;
+    END;
+
+BEGIN
+    { 初始化循环 }
+    i := 1;
+    WHILE i < 11 DO
+        READ(arr[i]);
+        i := i + 1;
+    ENDWH;
+
+    { 条件判断 }
+    IF arr[1] < arr[2] THEN
+        temp := arr[1];
+    ELSE
+        temp := arr[2];
+    FI;
+
+    WRITE(temp);
+END.
