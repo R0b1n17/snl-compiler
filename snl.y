@@ -38,6 +38,15 @@ static TreeNode* makeConstNode(int val) {
     TreeNode* t = newNode(ExpK);
     t->kind.exp = ConstK;
     t->attr.val = val;
+    t->type = Integer;
+    return t;
+}
+
+static TreeNode* makeCharConstNode(int val) {
+    TreeNode* t = newNode(ExpK);
+    t->kind.exp = ConstK;
+    t->attr.val = val;
+    t->type = Char;
     return t;
 }
 
@@ -313,6 +322,7 @@ programBody
 stmListOpt
     : /* empty */ { $$ = nullptr; }
     | stmList { $$ = $1; }
+    | stmList SEMI { $$ = $1; }
     ;
 
 stmList
@@ -486,7 +496,7 @@ unaryExp
 
 factor
     : NUM { $$ = makeConstNode($1); }
-    | CHARC { $$ = makeConstNode($1); }
+    | CHARC { $$ = makeCharConstNode($1); }
     | variable { $$ = $1; }
     | LPAREN exp RPAREN { $$ = $2; }
     ;

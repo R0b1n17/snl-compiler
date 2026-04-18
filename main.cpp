@@ -3,6 +3,7 @@
 #include <string>
 
 #include "globals.h"
+#include "semantic.h"
 #include "y.tab.h"
 
 extern int yyparse();
@@ -104,6 +105,13 @@ int main(int argc, char* argv[]) {
         } else {
             cout << "--- AST Structure ---" << endl;
             printTree(root, 0);
+
+            SemanticResult semantic = analyzeSemantics(root);
+            if (semantic.errorCount == 0) {
+                cout << "--- Semantic Check Passed ---" << endl;
+            } else {
+                cout << "--- Semantic Check Failed: " << semantic.errorCount << " error(s) ---" << endl;
+            }
         }
     } else {
         cout << "--- Parse Failed ---" << endl;

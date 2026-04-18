@@ -1,0 +1,7 @@
+PROGRAM semRedef;
+VAR
+    x: INTEGER;
+    x: CHAR;
+BEGIN
+    x := 1
+END.

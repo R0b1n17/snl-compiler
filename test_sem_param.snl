@@ -1,0 +1,15 @@
+PROGRAM semParam;
+VAR
+    x: INTEGER;
+    c: CHAR;
+
+PROCEDURE p(a: INTEGER; VAR b: INTEGER);
+BEGIN
+    b := a
+END;
+
+BEGIN
+    x := 3;
+    c := 'z';
+    CALL p(c, 1)
+END.
