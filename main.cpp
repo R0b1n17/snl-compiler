@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string>
 
+#include "codegen.h"
 #include "globals.h"
 #include "semantic.h"
 #include "y.tab.h"
@@ -109,6 +110,16 @@ int main(int argc, char* argv[]) {
             SemanticResult semantic = analyzeSemantics(root);
             if (semantic.errorCount == 0) {
                 cout << "--- Semantic Check Passed ---" << endl;
+
+                CodegenResult codegen = generateMips32(root, "out.s");
+                if (codegen.success) {
+                    cout << "--- Codegen Success ---" << endl;
+                    cout << "MIPS asm generated: " << codegen.outputAsmPath << endl;
+                    cout << "Run with Mars example:" << endl;
+                    cout << "java -jar \"Mars for Compile 2022.jar\" nc " << codegen.outputAsmPath << endl;
+                } else {
+                    cout << "--- Codegen Failed: " << codegen.errorCount << " error(s) ---" << endl;
+                }
             } else {
                 cout << "--- Semantic Check Failed: " << semantic.errorCount << " error(s) ---" << endl;
             }

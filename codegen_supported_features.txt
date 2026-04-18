@@ -1,0 +1,186 @@
+SNL Codegen Supported Features (Rule -> Implementation -> Example)
+
+Project branch goal:
+- Target: 32-bit MIPS assembly (Mars compatible)
+- Output file: out.s
+- Runtime: Mars for Compile 2022.jar
+
+Legend:
+- Status=PASS: codegen supports this construct and has runnable sample
+- Status=NA: semantic error rule, should be rejected before codegen
+- Status=LIMITED: partially supported, with current constraints noted
+
+======================================================================
+A. Base 12 Semantic Rules vs Codegen
+======================================================================
+
+1) Identifier redefinition in same scope
+- Status: NA
+- Semantic behavior: rejected in semantic phase.
+- Codegen behavior: not generated when semantic fails.
+- Example: test_sem_redef.snl
+
+2) Use of undeclared identifier
+- Status: NA
+- Semantic behavior: rejected in semantic phase.
+- Codegen behavior: not generated when semantic fails.
+- Example: test_sem_undef.snl
+
+3) Identifier category mismatch (type/variable/procedure misuse)
+- Status: NA
+- Semantic behavior: rejected in semantic phase.
+- Codegen behavior: not generated when semantic fails.
+- Example: test_sem_all12.snl
+
+4) Array index out of bounds
+- Status: NA
+- Semantic behavior: constant-index bounds check in semantic phase.
+- Codegen behavior: no code generation for semantic-failed source.
+- Example: test_sem_all12.snl
+
+5) Illegal array member / record field reference
+- Status: NA (for illegal cases), PASS (for legal cases)
+- Semantic behavior: illegal access rejected.
+- Codegen behavior: legal array/record access supported.
+- Legal example: test_codegen_arrrec.snl
+
+6) Assignment type incompatibility
+- Status: NA
+- Semantic behavior: rejected in semantic phase.
+- Codegen behavior: no code generation for semantic-failed source.
+- Example: test_sem_all12.snl
+
+7) Assignment left side is not a variable
+- Status: NA
+- Semantic behavior: rejected in semantic phase.
+- Codegen behavior: no code generation for semantic-failed source.
+- Example: test_sem_all12.snl
+
+8) Procedure call argument type mismatch
+- Status: NA
+- Semantic behavior: rejected in semantic phase.
+- Codegen behavior: no code generation for semantic-failed source.
+- Example: test_sem_all12.snl
+
+9) Procedure call argument count mismatch
+- Status: NA
+- Semantic behavior: rejected in semantic phase.
+- Codegen behavior: no code generation for semantic-failed source.
+- Example: test_sem_all12.snl
+
+10) Called identifier is not a procedure
+- Status: NA
+- Semantic behavior: rejected in semantic phase.
+- Codegen behavior: no code generation for semantic-failed source.
+- Example: test_sem_all12.snl
+
+11) IF/WHILE condition is not BOOLEAN
+- Status: NA (illegal cases), PASS (legal cases)
+- Semantic behavior: illegal condition rejected.
+- Codegen behavior: legal IF/WHILE branches and loops supported.
+- Legal examples: test_codegen_arrrec.snl, test_codegen_proc.snl
+
+12) Expression operand type incompatibility
+- Status: NA
+- Semantic behavior: rejected in semantic phase.
+- Codegen behavior: no code generation for semantic-failed source.
+- Example: test_sem_all12.snl
+
+======================================================================
+B. Additional 6 Rules vs Codegen
+======================================================================
+
+13) Variable may be used before initialization (warning)
+- Status: PASS (warning path)
+- Semantic behavior: warning; not a hard error.
+- Codegen behavior: still generates runnable code.
+- Example: test_sem_plus6.snl
+
+14) Division by zero in constant expression
+- Status: NA
+- Semantic behavior: hard error in semantic phase.
+- Codegen behavior: no code generation for semantic-failed source.
+- Example: test_sem_plus6.snl
+
+15) Direct comparison of ARRAY/RECORD values forbidden
+- Status: NA
+- Semantic behavior: hard error in semantic phase.
+- Codegen behavior: no code generation for semantic-failed source.
+- Example: test_sem_plus6.snl
+
+16) WRITE only supports basic expressions (not ARRAY/RECORD)
+- Status: NA (illegal cases), PASS (legal cases)
+- Semantic behavior: illegal write rejected.
+- Codegen behavior: integer expression write supported via syscall 1.
+- Legal examples: test_codegen_ok.snl, test_codegen_arrrec.snl, test_codegen_proc.snl
+
+17) Same variable passed to multiple VAR parameters (warning)
+- Status: PASS (warning path)
+- Semantic behavior: warning.
+- Codegen behavior: still generates runnable code.
+- Example: test_sem_plus6.snl
+
+18) Constant-condition dead code warnings
+- Status: PASS (warning path)
+- Semantic behavior: warning.
+- Codegen behavior: still generates runnable code.
+- Example: test_sem_plus6.snl
+
+======================================================================
+C. Implemented Codegen Capabilities (Current)
+======================================================================
+
+- Global variables (INTEGER/CHAR/ARRAY/RECORD) with data layout.
+- Arithmetic and relational expressions.
+- Assignment to:
+  - simple variable
+  - array element
+  - record field
+- READ into variable/lvalue address.
+- WRITE integer expression result + newline.
+- IF / IF-ELSE / WHILE control flow labels.
+- Procedure code generation:
+  - stack frame prologue/epilogue
+  - value parameter passing
+  - VAR parameter passing by address
+  - CALL + argument push/pop
+  - RETURN to procedure epilogue label
+
+======================================================================
+D. Demo Programs and Expected Output
+======================================================================
+
+1) test_codegen_ok.snl
+- Purpose: baseline arithmetic + assignment + WRITE
+- Expected output in Mars: 65
+
+2) test_codegen_arrrec.snl
+- Purpose: array + record addressing and mixed expressions
+- Expected output in Mars: 29
+
+3) test_codegen_proc.snl
+- Purpose: procedure call + VAR/value parameters + record field use
+- Expected output in Mars: 16
+
+======================================================================
+E. One-command Demo Flow
+======================================================================
+
+1) Build:
+   g++ -std=c++17 -Wall -Wextra -o parser.exe main.cpp semantic.cpp codegen.cpp y.tab.c lex.yy.c
+
+2) Generate out.s from a passing source:
+   .\parser.exe test_codegen_proc.snl
+
+3) Run in Mars:
+   java -jar "Mars for Compile 2022.jar" nc out.s
+
+======================================================================
+F. Answer for Defense (short version)
+======================================================================
+
+- Semantic layer enforces the 18-rule correctness gate.
+- Codegen runs on semantically valid programs.
+- For language constructs involved in those rules (expressions, assignment,
+  control flow, arrays, records, and procedure calls), MIPS generation is
+  implemented and verified with runnable Mars outputs.

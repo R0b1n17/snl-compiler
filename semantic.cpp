@@ -169,6 +169,21 @@ private:
         return c;
     }
 
+    TreeNode* getIdListHead(TreeNode* declOrParam) {
+        if (declOrParam == nullptr) return nullptr;
+        TreeNode* c = declOrParam->firstChild;
+        if (c != nullptr && c->nodekind == ExpK && c->kind.exp == IdK) return c;
+        return nullptr;
+    }
+
+    TreeNode* findTypeChild(TreeNode* declOrParam) {
+        if (declOrParam == nullptr) return nullptr;
+        for (TreeNode* c = declOrParam->firstChild; c != nullptr; c = c->sibling) {
+            if (c->nodekind == TypeK) return c;
+        }
+        return nullptr;
+    }
+
     void analyzeDeclList(TreeNode* decl) {
         for (TreeNode* cur = decl; cur != nullptr; cur = cur->sibling) {
             if (cur->nodekind != DeclareK) continue;
@@ -380,8 +395,8 @@ private:
             TreeNode* fieldDecl = typeNode->firstChild;
             for (TreeNode* f = fieldDecl; f != nullptr; f = f->sibling) {
                 if (f->nodekind != DeclareK || f->kind.dec != FieldDecK) continue;
-                TreeNode* ids = getNthChild(f, 0);
-                TreeNode* fTypeNode = getNthChild(f, 1);
+                TreeNode* ids = getIdListHead(f);
+                TreeNode* fTypeNode = findTypeChild(f);
                 TypeInfo* ft = resolveTypeNode(fTypeNode);
                 for (TreeNode* id = ids; id != nullptr; id = id->sibling) {
                     if (id->nodekind != ExpK || id->kind.exp != IdK) continue;
@@ -404,8 +419,8 @@ private:
     }
 
     void analyzeVarDecl(TreeNode* node, SymbolKind kind) {
-        TreeNode* ids = getNthChild(node, 0);
-        TreeNode* typeNode = getNthChild(node, 1);
+        TreeNode* ids = getIdListHead(node);
+        TreeNode* typeNode = findTypeChild(node);
         TypeInfo* t = resolveTypeNode(typeNode);
 
         for (TreeNode* id = ids; id != nullptr; id = id->sibling) {
@@ -422,8 +437,8 @@ private:
         for (TreeNode* p = paramListNode; p != nullptr; p = p->sibling) {
             if (p->nodekind != ParamK) continue;
             bool isVar = (p->kind.param == VarParamK);
-            TreeNode* ids = getNthChild(p, 0);
-            TreeNode* typeNode = getNthChild(p, 1);
+            TreeNode* ids = getIdListHead(p);
+            TreeNode* typeNode = findTypeChild(p);
             TypeInfo* pt = resolveTypeNode(typeNode);
             for (TreeNode* id = ids; id != nullptr; id = id->sibling) {
                 if (id->nodekind != ExpK || id->kind.exp != IdK) continue;

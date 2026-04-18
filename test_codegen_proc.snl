@@ -1,0 +1,23 @@
+PROGRAM cgProc;
+TYPE
+    TRec = RECORD
+        f: INTEGER;
+        g: INTEGER;
+    END;
+VAR
+    x, y: INTEGER;
+    r: TRec;
+
+PROCEDURE addTo(VAR a: INTEGER; b: INTEGER);
+BEGIN
+    a := a + b
+END;
+
+BEGIN
+    x := 5;
+    y := 3;
+    CALL addTo(x, y);
+    r.f := x;
+    r.g := r.f * 2;
+    WRITE(r.g)
+END.
