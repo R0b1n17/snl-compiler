@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 enum class TypeKindEx {
@@ -47,7 +48,7 @@ struct SymbolInfo {
 class SemanticAnalyzer {
 public:
     SemanticAnalyzer()
-        : errors_(0) {
+        : errors_(0), warnings_(0) {
         integerType_ = createType(TypeKindEx::Integer);
         charType_ = createType(TypeKindEx::Char);
         booleanType_ = createType(TypeKindEx::Boolean);
@@ -55,7 +56,7 @@ public:
 
     SemanticResult analyze(TreeNode* root) {
         if (root == nullptr) {
-            return {0};
+            return {0, 0};
         }
 
         enterScope();
@@ -68,14 +69,16 @@ public:
         }
 
         leaveScope();
-        return {errors_};
+        return {errors_, warnings_};
     }
 
 private:
     std::vector<std::unordered_map<std::string, SymbolInfo>> symbolScopes_;
     std::vector<std::unordered_map<std::string, TypeInfo*>> typeScopes_;
+    std::vector<std::unordered_map<std::string, bool>> initScopes_;
     std::vector<TypeInfo*> ownedTypes_;
     int errors_;
+    int warnings_;
 
     TypeInfo* integerType_;
     TypeInfo* charType_;
@@ -86,14 +89,21 @@ private:
         errors_++;
     }
 
+    void reportWarning(int line, const std::string& message) {
+        std::cerr << "Semantic warning at line " << line << ": " << message << std::endl;
+        warnings_++;
+    }
+
     void enterScope() {
         symbolScopes_.push_back({});
         typeScopes_.push_back({});
+        initScopes_.push_back({});
     }
 
     void leaveScope() {
         if (!symbolScopes_.empty()) symbolScopes_.pop_back();
         if (!typeScopes_.empty()) typeScopes_.pop_back();
+        if (!initScopes_.empty()) initScopes_.pop_back();
     }
 
     TypeInfo* createType(TypeKindEx kind) {
@@ -105,7 +115,8 @@ private:
 
     bool defineType(const std::string& name, TypeInfo* type, int line) {
         auto& scope = typeScopes_.back();
-        if (scope.find(name) != scope.end()) {
+        auto& symScope = symbolScopes_.back();
+        if (scope.find(name) != scope.end() || symScope.find(name) != symScope.end()) {
             reportError(line, "type '" + name + "' is redefined in the same scope");
             return false;
         }
@@ -125,11 +136,17 @@ private:
 
     bool defineSymbol(const std::string& name, const SymbolInfo& symbol, int line) {
         auto& scope = symbolScopes_.back();
-        if (scope.find(name) != scope.end()) {
+        auto& typeScope = typeScopes_.back();
+        if (scope.find(name) != scope.end() || typeScope.find(name) != typeScope.end()) {
             reportError(line, "identifier '" + name + "' is redefined in the same scope");
             return false;
         }
         scope[name] = symbol;
+        if (symbol.kind == SymbolKind::Variable) {
+            initScopes_.back()[name] = false;
+        } else if (symbol.kind == SymbolKind::Parameter) {
+            initScopes_.back()[name] = true;
+        }
         return true;
     }
 
@@ -198,6 +215,129 @@ private:
         }
     }
 
+    bool* findInitState(const std::string& name) {
+        for (int i = static_cast<int>(initScopes_.size()) - 1; i >= 0; --i) {
+            auto it = initScopes_[i].find(name);
+            if (it != initScopes_[i].end()) return &it->second;
+        }
+        return nullptr;
+    }
+
+    void markInitializedByName(const std::string& name) {
+        bool* state = findInitState(name);
+        if (state != nullptr) *state = true;
+    }
+
+    void markInitializedByLValue(TreeNode* node) {
+        if (node == nullptr || node->nodekind != ExpK) return;
+        if (node->kind.exp == IdK) {
+            markInitializedByName(node->attr.name);
+            return;
+        }
+        if (node->kind.exp == OpK && (node->attr.op == DOT || node->attr.op == LMIDPAREN)) {
+            markInitializedByLValue(getNthChild(node, 0));
+        }
+    }
+
+    bool tryEvalIntConst(TreeNode* exp, int& out) {
+        if (exp == nullptr || exp->nodekind != ExpK) return false;
+
+        if (exp->kind.exp == ConstK) {
+            if (exp->type == Char) return false;
+            out = exp->attr.val;
+            return true;
+        }
+
+        if (exp->kind.exp == UnaryOpK) {
+            int v = 0;
+            if (!tryEvalIntConst(exp->firstChild, v)) return false;
+            if (exp->attr.op == PLUS) {
+                out = v;
+                return true;
+            }
+            if (exp->attr.op == MINUS) {
+                out = -v;
+                return true;
+            }
+            return false;
+        }
+
+        if (exp->kind.exp == OpK) {
+            int lhs = 0;
+            int rhs = 0;
+            if (!tryEvalIntConst(getNthChild(exp, 0), lhs)) return false;
+            if (!tryEvalIntConst(getNthChild(exp, 1), rhs)) return false;
+
+            switch (exp->attr.op) {
+                case PLUS:
+                    out = lhs + rhs;
+                    return true;
+                case MINUS:
+                    out = lhs - rhs;
+                    return true;
+                case TIMES:
+                    out = lhs * rhs;
+                    return true;
+                case OVER:
+                    if (rhs == 0) return false;
+                    out = lhs / rhs;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        return false;
+    }
+
+    bool tryEvalBoolConst(TreeNode* exp, bool& out) {
+        if (exp == nullptr || exp->nodekind != ExpK) return false;
+
+        if (exp->kind.exp == UnaryOpK && exp->attr.op == NOT) {
+            bool operand = false;
+            if (!tryEvalBoolConst(exp->firstChild, operand)) return false;
+            out = !operand;
+            return true;
+        }
+
+        if (exp->kind.exp != OpK) return false;
+
+        if (exp->attr.op == AND || exp->attr.op == OR) {
+            bool lhs = false;
+            bool rhs = false;
+            if (!tryEvalBoolConst(getNthChild(exp, 0), lhs)) return false;
+            if (!tryEvalBoolConst(getNthChild(exp, 1), rhs)) return false;
+            out = (exp->attr.op == AND) ? (lhs && rhs) : (lhs || rhs);
+            return true;
+        }
+
+        if (exp->attr.op == LT || exp->attr.op == LE || exp->attr.op == GT || exp->attr.op == GE ||
+            exp->attr.op == EQ || exp->attr.op == NE) {
+            int li = 0;
+            int ri = 0;
+            if (tryEvalIntConst(getNthChild(exp, 0), li) && tryEvalIntConst(getNthChild(exp, 1), ri)) {
+                switch (exp->attr.op) {
+                    case LT: out = li < ri; return true;
+                    case LE: out = li <= ri; return true;
+                    case GT: out = li > ri; return true;
+                    case GE: out = li >= ri; return true;
+                    case EQ: out = li == ri; return true;
+                    case NE: out = li != ri; return true;
+                    default: return false;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    bool isLValueNode(TreeNode* node) {
+        if (node == nullptr || node->nodekind != ExpK) return false;
+        if (node->kind.exp == IdK) return true;
+        if (node->kind.exp == OpK && (node->attr.op == DOT || node->attr.op == LMIDPAREN)) return true;
+        return false;
+    }
+
     TypeInfo* resolveTypeNode(TreeNode* typeNode) {
         if (typeNode == nullptr || typeNode->nodekind != TypeK) {
             return createType(TypeKindEx::Unknown);
@@ -213,7 +353,12 @@ private:
         if (typeNode->kind.type == AliasTypeK) {
             TypeInfo* alias = findType(typeNode->attr.name);
             if (alias == nullptr) {
-                reportError(typeNode->lineno, "undefined type alias '" + typeNode->attr.name + "'");
+                SymbolInfo* sym = findSymbol(typeNode->attr.name);
+                if (sym != nullptr) {
+                    reportError(typeNode->lineno, "identifier '" + typeNode->attr.name + "' is not a type identifier");
+                } else {
+                    reportError(typeNode->lineno, "undefined type alias '" + typeNode->attr.name + "'");
+                }
                 return createType(TypeKindEx::Unknown);
             }
             return alias;
@@ -351,7 +496,7 @@ private:
         return true;
     }
 
-    TypeInfo* analyzeVariable(TreeNode* varNode) {
+    TypeInfo* analyzeVariable(TreeNode* varNode, bool forRead = true) {
         if (varNode == nullptr || varNode->nodekind != ExpK) {
             return createType(TypeKindEx::Unknown);
         }
@@ -359,12 +504,23 @@ private:
         if (varNode->kind.exp == IdK) {
             SymbolInfo* sym = findSymbol(varNode->attr.name);
             if (sym == nullptr) {
-                reportError(varNode->lineno, "undefined identifier '" + varNode->attr.name + "'");
+                TypeInfo* maybeType = findType(varNode->attr.name);
+                if (maybeType != nullptr) {
+                    reportError(varNode->lineno, "identifier '" + varNode->attr.name + "' is a type identifier, not a variable");
+                } else {
+                    reportError(varNode->lineno, "undefined identifier '" + varNode->attr.name + "'");
+                }
                 return createType(TypeKindEx::Unknown);
             }
             if (sym->kind == SymbolKind::Procedure) {
-                reportError(varNode->lineno, "procedure name '" + varNode->attr.name + "' cannot be used as a variable");
+                reportError(varNode->lineno, "identifier '" + varNode->attr.name + "' is a procedure identifier, not a variable");
                 return createType(TypeKindEx::Unknown);
+            }
+            if (forRead) {
+                bool* init = findInitState(varNode->attr.name);
+                if (init != nullptr && !(*init)) {
+                    reportWarning(varNode->lineno, "variable '" + varNode->attr.name + "' may be used before initialization");
+                }
             }
             return sym->type;
         }
@@ -372,7 +528,7 @@ private:
         if (varNode->kind.exp == OpK && varNode->attr.op == LMIDPAREN) {
             TreeNode* base = getNthChild(varNode, 0);
             TreeNode* idx = getNthChild(varNode, 1);
-            TypeInfo* baseType = analyzeVariable(base);
+            TypeInfo* baseType = analyzeVariable(base, forRead);
             TypeInfo* idxType = analyzeExp(idx);
             if (!isNumeric(idxType)) {
                 reportError(varNode->lineno, "array index must be INTEGER");
@@ -381,13 +537,20 @@ private:
                 reportError(varNode->lineno, "indexed object is not an array");
                 return createType(TypeKindEx::Unknown);
             }
+
+            int idxValue = 0;
+            if (tryEvalIntConst(idx, idxValue) && (idxValue < baseType->low || idxValue > baseType->high)) {
+                reportError(varNode->lineno, "array index " + std::to_string(idxValue) + " out of bounds [" +
+                                             std::to_string(baseType->low) + "," + std::to_string(baseType->high) + "]");
+            }
+
             return baseType->elementType;
         }
 
         if (varNode->kind.exp == OpK && varNode->attr.op == DOT) {
             TreeNode* base = getNthChild(varNode, 0);
             TreeNode* fieldId = getNthChild(varNode, 1);
-            TypeInfo* baseType = analyzeVariable(base);
+            TypeInfo* baseType = analyzeVariable(base, forRead);
             if (baseType == nullptr || baseType->kind != TypeKindEx::Record) {
                 reportError(varNode->lineno, "field selection target is not a record");
                 return createType(TypeKindEx::Unknown);
@@ -449,6 +612,12 @@ private:
                     if (!isNumeric(lhs) || !isNumeric(rhs)) {
                         reportError(exp->lineno, "arithmetic operands must be INTEGER");
                     }
+                    if (exp->attr.op == OVER) {
+                        int rhsConst = 0;
+                        if (tryEvalIntConst(getNthChild(exp, 1), rhsConst) && rhsConst == 0) {
+                            reportError(exp->lineno, "division by zero in constant expression");
+                        }
+                    }
                     return integerType_;
                 case AND:
                 case OR:
@@ -462,6 +631,10 @@ private:
                 case GE:
                 case EQ:
                 case NE:
+                    if ((lhs != nullptr && (lhs->kind == TypeKindEx::Array || lhs->kind == TypeKindEx::Record)) ||
+                        (rhs != nullptr && (rhs->kind == TypeKindEx::Array || rhs->kind == TypeKindEx::Record))) {
+                        reportError(exp->lineno, "array/record values cannot be compared directly");
+                    }
                     if (!sameType(lhs, rhs)) {
                         reportError(exp->lineno, "comparison operands have incompatible types");
                     }
@@ -477,11 +650,16 @@ private:
     void analyzeCall(TreeNode* stmt) {
         SymbolInfo* sym = findSymbol(stmt->attr.name);
         if (sym == nullptr) {
-            reportError(stmt->lineno, "undefined procedure '" + stmt->attr.name + "'");
+            TypeInfo* maybeType = findType(stmt->attr.name);
+            if (maybeType != nullptr) {
+                reportError(stmt->lineno, "identifier '" + stmt->attr.name + "' is a type identifier, not a procedure");
+            } else {
+                reportError(stmt->lineno, "undefined procedure '" + stmt->attr.name + "'");
+            }
             return;
         }
         if (sym->kind != SymbolKind::Procedure) {
-            reportError(stmt->lineno, "identifier '" + stmt->attr.name + "' is not a procedure");
+            reportError(stmt->lineno, "identifier '" + stmt->attr.name + "' is not a procedure identifier");
             return;
         }
 
@@ -496,6 +674,7 @@ private:
             return;
         }
 
+        std::unordered_map<std::string, int> varArgFirstPos;
         for (size_t i = 0; i < actualArgs.size(); ++i) {
             TypeInfo* actualType = analyzeExp(actualArgs[i]);
             TypeInfo* formalType = sym->params[i].type;
@@ -509,6 +688,24 @@ private:
                                  (arg->kind.exp == OpK && (arg->attr.op == DOT || arg->attr.op == LMIDPAREN)));
                 if (!isLValue) {
                     reportError(arg->lineno, "VAR parameter requires a variable argument");
+                } else {
+                    std::string key;
+                    if (arg->kind.exp == IdK) {
+                        key = arg->attr.name;
+                    } else if (arg->kind.exp == OpK && (arg->attr.op == DOT || arg->attr.op == LMIDPAREN)) {
+                        TreeNode* base = getNthChild(arg, 0);
+                        if (base != nullptr && base->nodekind == ExpK && base->kind.exp == IdK) {
+                            key = base->attr.name;
+                        }
+                    }
+                    if (!key.empty()) {
+                        auto it = varArgFirstPos.find(key);
+                        if (it == varArgFirstPos.end()) {
+                            varArgFirstPos[key] = static_cast<int>(i) + 1;
+                        } else {
+                            reportWarning(arg->lineno, "same variable '" + key + "' is passed to multiple VAR parameters");
+                        }
+                    }
                 }
             }
         }
@@ -521,10 +718,16 @@ private:
             case AssignK: {
                 TreeNode* lhsNode = getNthChild(stmt, 0);
                 TreeNode* rhsNode = getNthChild(stmt, 1);
-                TypeInfo* lhsType = analyzeVariable(lhsNode);
+                if (!isLValueNode(lhsNode)) {
+                    reportError(stmt->lineno, "left-hand side of assignment is not a variable");
+                }
+                TypeInfo* lhsType = analyzeVariable(lhsNode, false);
                 TypeInfo* rhsType = analyzeExp(rhsNode);
                 if (!sameType(lhsType, rhsType)) {
                     reportError(stmt->lineno, "assignment type mismatch");
+                }
+                if (isLValueNode(lhsNode)) {
+                    markInitializedByLValue(lhsNode);
                 }
                 break;
             }
@@ -533,6 +736,16 @@ private:
                 TypeInfo* condType = analyzeExp(cond);
                 if (!isBoolean(condType)) {
                     reportError(stmt->lineno, "IF condition must be BOOLEAN");
+                }
+                bool condConst = false;
+                if (tryEvalBoolConst(cond, condConst)) {
+                    if (condConst) {
+                        if (getNthChild(stmt, 2) != nullptr) {
+                            reportWarning(stmt->lineno, "IF condition is always true; ELSE branch is unreachable");
+                        }
+                    } else {
+                        reportWarning(stmt->lineno, "IF condition is always false; THEN branch is unreachable");
+                    }
                 }
                 analyzeStmtList(getNthChild(stmt, 1));
                 analyzeStmtList(getNthChild(stmt, 2));
@@ -544,20 +757,32 @@ private:
                 if (!isBoolean(condType)) {
                     reportError(stmt->lineno, "WHILE condition must be BOOLEAN");
                 }
+                bool condConst = false;
+                if (tryEvalBoolConst(cond, condConst)) {
+                    if (!condConst) {
+                        reportWarning(stmt->lineno, "WHILE condition is always false; loop body is unreachable");
+                    } else {
+                        reportWarning(stmt->lineno, "WHILE condition is always true; potential infinite loop");
+                    }
+                }
                 analyzeStmtList(getNthChild(stmt, 1));
                 break;
             }
             case ReadK: {
                 TreeNode* var = getNthChild(stmt, 0);
-                TypeInfo* t = analyzeVariable(var);
+                TypeInfo* t = analyzeVariable(var, false);
                 if (t == nullptr || (t->kind != TypeKindEx::Integer && t->kind != TypeKindEx::Char)) {
                     reportError(stmt->lineno, "READ target must be INTEGER or CHAR variable");
                 }
+                markInitializedByLValue(var);
                 break;
             }
             case WriteK: {
                 TreeNode* e = getNthChild(stmt, 0);
-                analyzeExp(e);
+                TypeInfo* t = analyzeExp(e);
+                if (t != nullptr && (t->kind == TypeKindEx::Array || t->kind == TypeKindEx::Record)) {
+                    reportError(stmt->lineno, "WRITE does not support ARRAY or RECORD expressions");
+                }
                 break;
             }
             case CallK:

@@ -112,6 +112,9 @@ int main(int argc, char* argv[]) {
             } else {
                 cout << "--- Semantic Check Failed: " << semantic.errorCount << " error(s) ---" << endl;
             }
+            if (semantic.warningCount > 0) {
+                cout << "--- Semantic Warning(s): " << semantic.warningCount << " ---" << endl;
+            }
         }
     } else {
         cout << "--- Parse Failed ---" << endl;

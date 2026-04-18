@@ -1,0 +1,33 @@
+PROGRAM semPlus6;
+TYPE
+    TArr = ARRAY [1..2] OF INTEGER;
+    TRec = RECORD
+        f: INTEGER;
+    END;
+VAR
+    a: TArr;
+    r: TRec;
+    x, y: INTEGER;
+
+PROCEDURE swap(VAR p: INTEGER; VAR q: INTEGER);
+BEGIN
+    p := q
+END;
+
+BEGIN
+    WRITE(a);
+    x := y + 1;
+    x := 1 / 0;
+    IF 1 < 2 THEN
+        x := 1
+    ELSE
+        x := 2
+    FI;
+    WHILE 2 < 1 DO
+        x := x + 1
+    ENDWH;
+    CALL swap(x, x);
+    IF a = a THEN
+        x := 3
+    FI
+END.

@@ -5,6 +5,7 @@
 
 struct SemanticResult {
     int errorCount;
+    int warningCount;
 };
 
 SemanticResult analyzeSemantics(TreeNode* root);

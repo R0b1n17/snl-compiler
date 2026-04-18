@@ -1,0 +1,27 @@
+SNL Semantic Rules Checklist (18 Items)
+
+Base 12 required by course:
+1. Identifier redefinition in same scope.
+2. Use of undeclared identifier.
+3. Identifier category mismatch (type/variable/procedure misuse).
+4. Array index out of bounds.
+5. Illegal array member or record field reference.
+6. Assignment type incompatibility.
+7. Left side of assignment is not a variable.
+8. Procedure call argument type mismatch.
+9. Procedure call argument count mismatch.
+10. Called identifier is not a procedure.
+11. IF/WHILE condition is not BOOLEAN.
+12. Expression operand type incompatibility.
+
+Additional 6 enhancements:
+13. Variable may be used before initialization (warning).
+14. Division by zero in constant expression.
+15. Direct comparison of ARRAY/RECORD values is forbidden.
+16. WRITE only supports basic expressions (INTEGER/CHAR/BOOLEAN), not ARRAY/RECORD.
+17. Same variable passed to multiple VAR parameters in one call (warning).
+18. Constant-condition dead code warnings (IF branch unreachable, WHILE always false/true).
+
+Suggested validation files:
+- test_sem_all12.snl : covers the 12 base rules.
+- test_sem_plus6.snl : covers the 6 additional rules.

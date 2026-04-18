@@ -347,7 +347,7 @@ stm
     ;
 
 assignStm
-    : variable ASSIGN exp
+    : exp ASSIGN exp
       {
           $$ = newNode(StmtK);
           $$->kind.stmt = AssignK;

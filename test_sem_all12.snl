@@ -1,0 +1,41 @@
+PROGRAM semAll12;
+TYPE
+    TInt = INTEGER;
+    TArr = ARRAY [1..3] OF INTEGER;
+    TRec = RECORD
+        f: INTEGER;
+    END;
+VAR
+    x: INTEGER;
+    x: CHAR;
+    a: TArr;
+    r: TRec;
+    c: CHAR;
+    n: INTEGER;
+
+PROCEDURE p(a1: INTEGER; VAR b1: INTEGER);
+BEGIN
+    b1 := a1
+END;
+
+BEGIN
+    n := u;
+    n := TInt;
+    n := p;
+    n := a[5];
+    n := n[1];
+    n := n.f;
+    n := r.g;
+    1 := n;
+    n := c;
+    n := c + n;
+    CALL p(c, n);
+    CALL p(n);
+    CALL n;
+    IF n THEN
+        n := 1
+    FI;
+    WHILE c DO
+        n := 2
+    ENDWH
+END.
