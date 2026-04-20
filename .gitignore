@@ -1,0 +1,17 @@
+# Build artifacts
+*.exe
+*.o
+*.obj
+*.out
+
+# Generated assembly/output
+out.s
+
+# Editor settings
+.vscode/
+
+# Large local tools
+Mars for Compile 2022.jar
+
+# Logs
+*.log

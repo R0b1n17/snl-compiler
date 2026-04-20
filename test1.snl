@@ -1,0 +1,14 @@
+PROGRAM basicTest;
+VAR
+    x, y, result: INTEGER;
+    flag: CHAR;
+BEGIN
+    { 这是一个注释，词法分析器应该忽略它 }
+    x := 10;
+    y := 25;
+    flag := 'a';
+    
+    result := (x + y) * 2 - 5 / 1;
+    
+    WRITE(result);
+END.

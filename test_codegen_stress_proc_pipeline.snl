@@ -1,0 +1,43 @@
+PROGRAM cgStressProcPipeline;
+TYPE
+    IntArray = ARRAY [1..5] OF INTEGER;
+VAR
+    a: IntArray;
+    i, sum: INTEGER;
+
+PROCEDURE incAll(VAR arr: IntArray; delta: INTEGER);
+VAR
+    k: INTEGER;
+BEGIN
+    k := 1;
+    WHILE k <= 5 DO
+        arr[k] := arr[k] + delta;
+        k := k + 1
+    ENDWH
+END;
+
+PROCEDURE sumAll(VAR arr: IntArray; VAR outv: INTEGER);
+VAR
+    k: INTEGER;
+BEGIN
+    outv := 0;
+    k := 1;
+    WHILE k <= 5 DO
+        outv := outv + arr[k];
+        k := k + 1
+    ENDWH
+END;
+
+BEGIN
+    a[1] := 1; a[2] := 2; a[3] := 3; a[4] := 4; a[5] := 5;
+    sum := 0;
+    CALL incAll(a, 3);
+    CALL sumAll(a, sum);
+    WRITE(sum);
+
+    i := 1;
+    WHILE i <= 5 DO
+        WRITE(a[i]);
+        i := i + 1
+    ENDWH
+END.

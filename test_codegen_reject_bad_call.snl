@@ -1,0 +1,14 @@
+PROGRAM cgRejectBadCall;
+VAR
+    x: INTEGER;
+
+PROCEDURE add1(a: INTEGER);
+BEGIN
+    x := a + 1
+END;
+
+BEGIN
+    x := 0;
+    CALL add1();
+    WRITE(x)
+END.

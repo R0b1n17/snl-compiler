@@ -1,0 +1,22 @@
+PROGRAM cgLogicOps;
+VAR
+    a, b, c: INTEGER;
+BEGIN
+    a := 5;
+    b := 3;
+    c := 0;
+
+    IF (a > b) AND NOT (a = 5) THEN
+        c := 1
+    ELSE
+        c := 2
+    FI;
+    WRITE(c);
+
+    IF (a > b) OR (b > a) THEN
+        c := c + 10
+    ELSE
+        c := c + 20
+    FI;
+    WRITE(c)
+END.

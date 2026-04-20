@@ -1,0 +1,60 @@
+代码生成扩展测试集（新增）
+
+一、可通过并可运行的正例
+
+1) test_codegen_ifelse_multistmt.snl
+- 覆盖点：IF-ELSE 两个分支均为多语句块
+- 期望：语义通过，Codegen 成功，Mars 输出 22
+
+2) test_codegen_logic_ops.snl
+- 覆盖点：AND / OR / NOT 逻辑表达式 + 两次分支
+- 期望：语义通过，Codegen 成功，Mars 输出两行：2、12
+
+3) test_codegen_array_sum.snl
+- 覆盖点：数组寻址 + WHILE 累加
+- 期望：语义通过，Codegen 成功，Mars 输出 21
+
+4) test_codegen_record_proc.snl
+- 覆盖点：RECORD 字段访问 + VAR 参数（记录）+ 过程调用
+- 期望：语义通过，Codegen 成功，Mars 输出 21
+
+5) test_codegen_varparam_array_swap.snl
+- 覆盖点：数组元素作为 VAR 实参 + 过程内局部变量 + 条件交换
+- 期望：语义通过（可能有 VAR 参数别名警告），Codegen 成功，Mars 输出三行：1、5、9
+
+6) test_codegen_char_unary.snl
+- 覆盖点：CHAR 常量、Unary minus、算术组合
+- 期望：语义通过，Codegen 成功，Mars 输出两行：65、11
+
+二、应在语义阶段拒绝的负例
+
+7) test_codegen_reject_write_record.snl
+- 覆盖点：WRITE RECORD 非法用法
+- 期望：语义失败（WRITE does not support ARRAY or RECORD expressions）
+
+8) test_codegen_reject_bad_call.snl
+- 覆盖点：过程调用参数个数不匹配
+- 期望：语义失败（argument count mismatch）
+
+三、执行命令示例
+
+1) 编译单个测试并生成 out.s
+   .\parser.exe test_codegen_ifelse_multistmt.snl
+
+2) 运行生成的 out.s
+   java -jar "Mars for Compile 2022.jar" nc out.s
+
+3) 批量回归（PowerShell 示例）
+   $pass = @(
+     'test_codegen_ifelse_multistmt.snl',
+     'test_codegen_logic_ops.snl',
+     'test_codegen_array_sum.snl',
+     'test_codegen_record_proc.snl',
+     'test_codegen_varparam_array_swap.snl',
+     'test_codegen_char_unary.snl'
+   );
+   foreach ($t in $pass) {
+     Write-Host "===== $t =====";
+     .\parser.exe .\$t;
+     java -jar "Mars for Compile 2022.jar" nc out.s;
+   }

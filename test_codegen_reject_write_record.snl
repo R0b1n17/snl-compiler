@@ -1,0 +1,11 @@
+PROGRAM cgRejectWriteRecord;
+TYPE
+    R = RECORD
+        f: INTEGER;
+    END;
+VAR
+    r: R;
+BEGIN
+    r.f := 7;
+    WRITE(r)
+END.

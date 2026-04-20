@@ -1,0 +1,35 @@
+PROGRAM Demo;
+TYPE
+  IntArray = ARRAY[1..5] OF INTEGER;
+  RecType = RECORD
+    age: INTEGER;
+    code: CHAR;
+  END;
+VAR
+  x, y: INTEGER;
+  c: CHAR;
+  a: IntArray;
+  r: RecType;
+PROCEDURE Inc(VAR v: INTEGER; delta: INTEGER);
+BEGIN
+  v := v + delta;
+  RETURN
+END;
+BEGIN
+  x := 1;
+  y := 2;
+  c := 'A';
+  a[1] := x + y * 3;
+  r.age := a[1];
+  IF x < y THEN
+    WRITE(r.age)
+  ELSE
+    WRITE(x)
+  FI;
+  WHILE x < 5 DO
+    x := x + 1
+  ENDWH;
+  CALL Inc(x, 2);
+  READ(r.age);
+  WRITE(x)
+END.

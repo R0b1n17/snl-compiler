@@ -1,0 +1,10 @@
+PROGRAM cgCharUnary;
+VAR
+    ch: CHAR;
+    x: INTEGER;
+BEGIN
+    ch := 'A';
+    x := -5 + 8 * 2;
+    WRITE(ch);
+    WRITE(x)
+END.

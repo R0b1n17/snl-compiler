@@ -1,0 +1,41 @@
+PROGRAM BubbleSortClassic;
+TYPE
+    IntArray = ARRAY[1..10] OF INTEGER;
+VAR
+    a: IntArray;
+    n, i, j, temp: INTEGER;
+
+BEGIN
+    n := 10;
+
+    a[1] := 64;
+    a[2] := 34;
+    a[3] := 25;
+    a[4] := 12;
+    a[5] := 22;
+    a[6] := 11;
+    a[7] := 90;
+    a[8] := 5;
+    a[9] := 44;
+    a[10] := 1;
+
+    i := 1;
+    WHILE i < n DO
+        j := 1;
+        WHILE j <= n - i DO
+            IF a[j] > a[j + 1] THEN
+                temp := a[j];
+                a[j] := a[j + 1];
+                a[j + 1] := temp
+            FI;
+            j := j + 1
+        ENDWH;
+        i := i + 1
+    ENDWH;
+
+    i := 1;
+    WHILE i <= n DO
+        WRITE(a[i]);
+        i := i + 1
+    ENDWH
+END.

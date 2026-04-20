@@ -1,0 +1,23 @@
+PROGRAM cgRecordProc;
+TYPE
+    Pair = RECORD
+        first: INTEGER;
+        second: INTEGER;
+    END;
+VAR
+    p: Pair;
+    res: INTEGER;
+
+PROCEDURE update(VAR r: Pair; delta: INTEGER);
+BEGIN
+    r.first := r.first + delta;
+    r.second := r.first * 2
+END;
+
+BEGIN
+    p.first := 4;
+    p.second := 0;
+    CALL update(p, 3);
+    res := p.first + p.second;
+    WRITE(res)
+END.

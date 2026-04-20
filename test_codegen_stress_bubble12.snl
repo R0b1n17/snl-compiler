@@ -1,0 +1,32 @@
+PROGRAM cgStressBubble12;
+TYPE
+    IntArray = ARRAY [1..12] OF INTEGER;
+VAR
+    a: IntArray;
+    i, j, n, temp: INTEGER;
+BEGIN
+    n := 12;
+    a[1] := 9;  a[2] := 4;  a[3] := 8;  a[4] := 1;
+    a[5] := 7;  a[6] := 3;  a[7] := 6;  a[8] := 2;
+    a[9] := 5;  a[10] := 0; a[11] := 11; a[12] := 10;
+
+    i := 1;
+    WHILE i < n DO
+        j := 1;
+        WHILE j <= n - i DO
+            IF a[j] > a[j + 1] THEN
+                temp := a[j];
+                a[j] := a[j + 1];
+                a[j + 1] := temp
+            FI;
+            j := j + 1
+        ENDWH;
+        i := i + 1
+    ENDWH;
+
+    i := 1;
+    WHILE i <= n DO
+        WRITE(a[i]);
+        i := i + 1
+    ENDWH
+END.

@@ -1,0 +1,13 @@
+PROGRAM finalTest;
+VAR
+    INTEGER a, b, c;
+BEGIN
+    READ(a);
+    b := 10;
+    IF a < b THEN
+        c := a + b * 2;
+    ELSE
+        c := a - b;
+    FI;
+    WRITE(c);
+END.

@@ -1,0 +1,23 @@
+PROGRAM cgArraySum;
+TYPE
+    IntArray = ARRAY [1..6] OF INTEGER;
+VAR
+    a: IntArray;
+    i, sum: INTEGER;
+BEGIN
+    a[1] := 1;
+    a[2] := 2;
+    a[3] := 3;
+    a[4] := 4;
+    a[5] := 5;
+    a[6] := 6;
+
+    i := 1;
+    sum := 0;
+    WHILE i <= 6 DO
+        sum := sum + a[i];
+        i := i + 1
+    ENDWH;
+
+    WRITE(sum)
+END.

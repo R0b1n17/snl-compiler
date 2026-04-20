@@ -1,0 +1,18 @@
+PROGRAM cgIfElseMulti;
+VAR
+    x, y, z: INTEGER;
+BEGIN
+    x := 3;
+    y := 8;
+    z := 0;
+
+    IF x < y THEN
+        z := x + y;
+        z := z * 2
+    ELSE
+        z := x - y;
+        z := z / 2
+    FI;
+
+    WRITE(z)
+END.

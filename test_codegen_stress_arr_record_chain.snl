@@ -1,0 +1,25 @@
+PROGRAM cgStressArrRecordChain;
+TYPE
+    Cell = RECORD
+        v: INTEGER;
+        w: INTEGER;
+    END;
+    CellArr = ARRAY [1..4] OF Cell;
+VAR
+    c: CellArr;
+    i, s: INTEGER;
+BEGIN
+    c[1].v := 1; c[1].w := 10;
+    c[2].v := 2; c[2].w := 20;
+    c[3].v := 3; c[3].w := 30;
+    c[4].v := 4; c[4].w := 40;
+
+    i := 1;
+    WHILE i <= 4 DO
+        c[i].w := c[i].w + c[i].v;
+        i := i + 1
+    ENDWH;
+
+    s := c[1].w + c[2].w + c[3].w + c[4].w;
+    WRITE(s)
+END.

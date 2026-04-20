@@ -1,0 +1,103 @@
+[2026-04-20] 代码生成测试执行日志
+
+说明:
+- 本文件记录新增测试集的执行过程与结果。
+- 目标: 覆盖分支、循环、数组、记录、过程调用、参数传递、语义拒绝门禁。
+
+============================================================
+A. 常规测试集结果
+============================================================
+
+1) test_codegen_ifelse_multistmt.snl
+- 目标: IF-ELSE 双分支多语句
+- 期望: 输出 22
+- 实际: 22
+- 结论: PASS
+
+2) test_codegen_logic_ops.snl
+- 目标: AND/OR/NOT + 分支
+- 期望: 输出两行 2, 12
+- 实际: 2 / 12
+- 结论: PASS
+
+3) test_codegen_array_sum.snl
+- 目标: 数组 + WHILE 累加
+- 期望: 输出 21
+- 实际: 21
+- 结论: PASS
+
+4) test_codegen_record_proc.snl
+- 目标: RECORD 字段 + 过程调用
+- 期望: 输出 21
+- 实际: 21
+- 结论: PASS
+
+5) test_codegen_varparam_array_swap.snl
+- 目标: 数组元素作为 VAR 实参
+- 期望: 输出三行 1, 5, 9
+- 实际: 1 / 5 / 9
+- 语义提示: same variable passed to multiple VAR parameters（警告）
+- 结论: PASS（含警告）
+
+6) test_codegen_char_unary.snl
+- 目标: CHAR 常量 + 一元负号
+- 期望: 输出两行 65, 11
+- 实际: 65 / 11
+- 结论: PASS
+
+7) test_codegen_reject_write_record.snl
+- 目标: 验证 WRITE RECORD 被拒绝
+- 期望: 语义失败
+- 实际: Semantic error: WRITE does not support ARRAY or RECORD expressions
+- 结论: PASS（拒绝符合预期）
+
+8) test_codegen_reject_bad_call.snl
+- 目标: 验证过程参数个数不匹配被拒绝
+- 期望: 语义失败
+- 实际: Semantic error: procedure argument count mismatch
+- 结论: PASS（拒绝符合预期）
+
+============================================================
+B. 压力测试集结果
+============================================================
+
+执行脚本:
+- run_codegen_stress_tests.ps1
+
+1) test_codegen_stress_bubble12.snl
+- 目标: 12 元素冒泡，嵌套循环 + IF 多语句
+- 期望: 输出 0..11 升序
+- 实际: 0 1 2 3 4 5 6 7 8 9 10 11
+- 结论: PASS
+
+2) test_codegen_stress_arr_record_chain.snl
+- 目标: 数组与记录链式左值 c[i].w
+- 期望: 输出 110
+- 实际: 110
+- 结论: PASS
+
+3) test_codegen_stress_proc_pipeline.snl
+- 目标: 过程流水线（VAR 数组 + VAR 输出）
+- 期望: 第一行 30，后续数组 4..8
+- 实际: 30 / 4 / 5 / 6 / 7 / 8
+- 结论: PASS
+
+4) test_codegen_stress_reject_call_type.snl
+- 目标: 调用参数类型错误拒绝
+- 期望: 语义失败
+- 实际: Semantic error: argument type mismatch in call to 'setV'
+- 结论: PASS（拒绝符合预期）
+
+5) test_codegen_stress_reject_index.snl
+- 目标: 常量下标越界拒绝
+- 期望: 语义失败
+- 实际: Semantic error: array index 4 out of bounds [1,3]
+- 结论: PASS（拒绝符合预期）
+
+============================================================
+C. 汇总结论
+============================================================
+
+- 正例: 全部通过并可生成可运行 MIPS。
+- 负例: 全部在语义阶段被正确拒绝。
+- 说明: 经过 IF 分支边界修复后，冒泡与多语句分支相关场景表现稳定。

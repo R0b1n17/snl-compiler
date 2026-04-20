@@ -1,0 +1,84 @@
+[2026-04-20] Bug 日志 - AST/Codegen 中 IF 分支边界错乱
+
+问题概述:
+- 程序: SNL 经典冒泡排序
+- 现象: 生成的 MIPS 运行后输出不是升序；当 IF 的 THEN 中包含多条语句且没有 ELSE 时，分支执行异常。
+
+复现步骤（修复前）:
+1) 使用 parser.exe 编译 test_bubble_classic.snl
+2) 使用 Mars 运行 out.s
+3) 输出序列错误（不是升序）
+
+根因分析:
+- TreeNode::addChild 会把 sibling 链追加成扁平 child 列表。
+- ifStm 语法动作中，THEN/ELSE 的语句链被直接作为 IF 子节点挂接。
+- 导致 IF 节点的分支边界丢失，代码生成阶段把错误节点当成 ELSE 或后续语句读取。
+
+修复内容:
+1) snl.y:
+   - 将 THEN 的 stmListOpt 包装为一个 RoutineBodyK 块节点。
+   - 将 ELSE 的 stmListOpt 包装为一个 RoutineBodyK 块节点。
+2) y.tab.c:
+   - 同步修改生成的归约动作，与 snl.y 保持一致。
+3) codegen.cpp:
+   - 新增 unwrapStmtBlock()，在 IfK 代码生成时先解包分支块。
+4) semantic.cpp:
+   - 新增 unwrapStmtBlock()，在 IfK 语义分析时先解包分支块。
+
+验证结果:
+- 已重新编译 parser.exe
+- 已重新编译 test_bubble_classic.snl
+- 已使用 Mars 运行 out.s
+- 输出已正确为升序:
+  1 5 11 12 22 25 34 44 64 90
+
+状态:
+- 已解决
+
+------------------------------------------------------------
+后续修改过程与结果补充（2026-04-20）
+------------------------------------------------------------
+
+一、问题出现与确认
+- 在经典冒泡程序（IF 内三条交换语句）上出现排序结果错误。
+- 修复前输出示例（错误）：1 44 90 90 22 22 25 25 34 64
+
+二、定位与修改过程
+1) 首先通过对 out.s 反汇编结构比对，确认 IF 分支代码块边界错乱。
+2) 修复语法构树：
+   - snl.y 中 ifStm 的 THEN/ELSE 语句链改为 RoutineBodyK 块包装。
+3) 同步生成文件：
+   - y.tab.c 中 case 53/54 对应动作同步为块包装版本。
+4) 修复语义与代码生成读取：
+   - semantic.cpp 新增 unwrapStmtBlock()，IfK 分析时先解包。
+   - codegen.cpp 新增 unwrapStmtBlock()，IfK 生成时先解包。
+5) 重新编译 parser.exe 并回归。
+
+三、修复后关键结果
+- 经典冒泡输出（正确）：1 5 11 12 22 25 34 44 64 90
+- IF/ELSE 多语句分支可正确生成与执行。
+
+四、扩展测试结果（摘要）
+1) 新增常规正例（全部通过）
+   - test_codegen_ifelse_multistmt.snl -> 22
+   - test_codegen_logic_ops.snl -> 2, 12
+   - test_codegen_array_sum.snl -> 21
+   - test_codegen_record_proc.snl -> 21
+   - test_codegen_varparam_array_swap.snl -> 1, 5, 9（有 VAR 别名警告）
+   - test_codegen_char_unary.snl -> 65, 11
+
+2) 新增常规负例（语义拒绝）
+   - test_codegen_reject_write_record.snl -> WRITE 不支持 RECORD
+   - test_codegen_reject_bad_call.snl -> 过程参数个数不匹配
+
+3) 新增压力正例（全部通过）
+   - test_codegen_stress_bubble12.snl -> 0..11（12 行）
+   - test_codegen_stress_arr_record_chain.snl -> 110
+   - test_codegen_stress_proc_pipeline.snl -> 30, 4, 5, 6, 7, 8
+
+4) 新增压力负例（语义拒绝）
+   - test_codegen_stress_reject_call_type.snl -> 参数类型不匹配
+   - test_codegen_stress_reject_index.snl -> 常量下标 4 越界 [1,3]
+
+备注:
+- 详细测试执行记录见 log_test.txt。

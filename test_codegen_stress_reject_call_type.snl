@@ -1,0 +1,16 @@
+PROGRAM cgStressRejectCallType;
+VAR
+    x: INTEGER;
+    c: CHAR;
+
+PROCEDURE setV(VAR a: INTEGER; b: INTEGER);
+BEGIN
+    a := b
+END;
+
+BEGIN
+    x := 0;
+    c := 'A';
+    CALL setV(x, c);
+    WRITE(x)
+END.
