@@ -8,7 +8,9 @@
 #include "y.tab.h"
 
 extern int yyparse();
+extern int yylex();
 extern FILE* yyin;
+extern int lineno;
 extern TreeNode* root;
 
 using namespace std;
@@ -32,6 +34,80 @@ static string opToString(int op) {
         case LMIDPAREN: return "[]";
         default: return "?";
     }
+}
+
+static string tokenToString(int token) {
+    switch (token) {
+        case PROGRAM: return "PROGRAM";
+        case PROCEDURE: return "PROCEDURE";
+        case TYPE: return "TYPE";
+        case VAR: return "VAR";
+        case IF: return "IF";
+        case THEN: return "THEN";
+        case ELSE: return "ELSE";
+        case FI: return "FI";
+        case WHILE: return "WHILE";
+        case DO: return "DO";
+        case ENDWH: return "ENDWH";
+        case BEGIN_SYM: return "BEGIN";
+        case END: return "END";
+        case READ: return "READ";
+        case WRITE: return "WRITE";
+        case ARRAY: return "ARRAY";
+        case OF: return "OF";
+        case RECORD: return "RECORD";
+        case RETURN: return "RETURN";
+        case CALL: return "CALL";
+        case INTEGER_T: return "INTEGER";
+        case CHAR_T: return "CHAR";
+        case ASSIGN: return ":=";
+        case EQ: return "=";
+        case LT: return "<";
+        case LE: return "<=";
+        case GT: return ">";
+        case GE: return ">=";
+        case NE: return "<>";
+        case PLUS: return "+";
+        case MINUS: return "-";
+        case TIMES: return "*";
+        case OVER: return "/";
+        case AND: return "AND";
+        case OR: return "OR";
+        case NOT: return "NOT";
+        case LPAREN: return "(";
+        case RPAREN: return ")";
+        case LMIDPAREN: return "[";
+        case RMIDPAREN: return "]";
+        case DOT: return ".";
+        case COLON: return ":";
+        case SEMI: return ";";
+        case COMMA: return ",";
+        case RANGE: return "..";
+        case ID: return "ID";
+        case NUM: return "NUM";
+        case CHARC: return "CHARC";
+        case ERROR: return "ERROR";
+        case 0: return "EOF";
+        default: return "UNKNOWN";
+    }
+}
+
+static int dumpTokens() {
+    int token = 0;
+    while ((token = yylex()) != 0) {
+        cout << "[Line " << lineno << "] " << tokenToString(token);
+        if (token == ID) {
+            cout << "\t" << yylval.name;
+        } else if (token == NUM || token == CHARC) {
+            cout << "\t" << yylval.val;
+        }
+        cout << endl;
+        if (token == ERROR) {
+            return 1;
+        }
+    }
+    cout << "[Line " << lineno << "] EOF" << endl;
+    return 0;
 }
 
 void printTree(TreeNode* t, int indent) {
@@ -91,12 +167,32 @@ void printTree(TreeNode* t, int indent) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc > 1) {
-        yyin = fopen(argv[1], "r");
+    bool tokenDumpMode = false;
+    const char* inputPath = nullptr;
+
+    for (int i = 1; i < argc; ++i) {
+        string arg = argv[i];
+        if (arg == "--tokens" || arg == "-t") {
+            tokenDumpMode = true;
+        } else if (inputPath == nullptr) {
+            inputPath = argv[i];
+        }
+    }
+
+    if (inputPath != nullptr) {
+        yyin = fopen(inputPath, "r");
         if (!yyin) {
             cout << "File not found!" << endl;
             return 1;
         }
+    }
+
+    if (tokenDumpMode) {
+        if (yyin == nullptr) {
+            cout << "Usage: parser.exe [--tokens|-t] <input.snl>" << endl;
+            return 1;
+        }
+        return dumpTokens();
     }
 
     if (yyparse() == 0) {
